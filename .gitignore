@@ -1,3 +1,16 @@
+# Caches, and other ignorables
+.cache
+tmux_session.sh
+
+# wrapDB
+subprojects/packagecache/
+subprojects/*/
+!subprojects/*.wrap
+!subprojects/wrapdb.json
+
+# Project notes
+notes/
+ 
 # Prerequisites
 *.d
 
