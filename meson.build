@@ -5,7 +5,7 @@ project(
   license: 'MIT',
   default_options: [
     'c_std=c11',
-    'cpp_std=c++17',
+    'cpp_std=c++11',
     'default_library=static',
     ]
   )

@@ -214,6 +214,15 @@ class TileAnimationFrame {
 public:
     unsigned int tile_id = 0;
     double duration_ms = 100.0;
+
+    TileAnimationFrame (
+            unsigned int tile_id = 0,
+            double duration_ms = 100.0
+            )
+        :
+            tile_id(tile_id),
+            duration_ms(duration_ms)
+    { }
 };
 
 
