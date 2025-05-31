@@ -245,15 +245,17 @@ public:
 
 
 struct EntityInfo {
-    EntityID entityid;                              // Unique entity's identifier
-    bool active = false;                            // active status, true means this entity is active
-    size_t current_version = 0;                     // version, to prevent old disabled id to be used by user
-    std::bitset<MAX_COMPONENTS> component_mask;     // mask of assigned components to this entity
+    EntityID entityid;                              //!< Unique entity's identifier
+    bool active = false;                            //!< active status, true means this entity is active
+    size_t current_version = 0;                     //!< version, to prevent old disabled id to be used by user
+    std::bitset<MAX_COMPONENTS> component_mask;     //!< mask of assigned components to this entity
 };
 
 
-// Required Interface to make sure that ComponentManager can keep reference to
-// multiple types of ComponentArray
+/**
+ * Required Interface to make sure that ComponentManager can keep reference to
+ * multiple types of ComponentArray
+ */
 class IComponentArray {
 public:
     virtual ~IComponentArray() = default;
@@ -262,16 +264,34 @@ public:
 };
 
 
+/**
+ * Container for components of types T that were managed by ComponentManager.
+ *
+ * The components were stored in a `vector<T>` that will only grow when a T component
+ * were added to an entity. This were done to saves on memory usage and avoid sparse
+ * array that will contains mostly unused component objects.
+ */
 template <typename T>
 class ComponentArray : public IComponentArray {
 private:
+    /** map of entity ID to index in m_components */
     std::unordered_map<EntityIDNumber, size_t> m_entity_to_index_map;
+    /** map of index in m_components to entity ID */
     std::unordered_map<size_t, EntityIDNumber> m_index_to_entity_map;
+    /** array of component objects */
     std::vector<T> m_components;
+    /** queue of empty indexes in the m_components */
     std::queue<size_t> m_empty_index_queue;
+    /** empty index at the end of the m_components array */
     size_t m_last_empty_component_index = 0;
 
 public:
+    /**
+     * returns pointer of component T in the arrays of stored components.
+     * If the entity doesn't have component T, it will return null pointer.
+     * 
+     * **Note**: *this pointer can be invalid when component arrays grows.*
+     */
     T* getComponentByEntityID(EntityIDNumber entity_id) {
         auto index_pair = m_entity_to_index_map.find(entity_id);
         if (index_pair != m_entity_to_index_map.end()) {
@@ -286,12 +306,13 @@ public:
         return this->getComponentByEntityID(entity_id);
     }
 
+    /**
+     * This function won't check whether entity_id is already populated or not,
+     * instead it will replaced existing component if that component is already
+     * associated with an entity.
+     * it is the responsibility of the caller to check that.
+     */
     void addComponentToArray(EntityIDNumber entity_id) {
-        // This function won't check whether entity_id is already populated or not,
-        // instead it will replaced existing component if that component is already
-        // associated with an entity.
-        // it is the responsibility of the caller to check that.
-        
         size_t new_index;
         if (this->m_empty_index_queue.size() > 0) {
             new_index = this->m_empty_index_queue.front();
@@ -319,9 +340,11 @@ public:
         }
     }
 
+    /**
+     * This component won't check whether entity_id have any associated component
+     * or not and removing non existent component will cause error
+     */
     void removeComponentFromArray(EntityIDNumber entity_id) {
-        // This component won't check whether entity_id have any associated component
-        // or not and removing non existent component will cause error
         
         size_t component_index = m_entity_to_index_map[entity_id];
         m_entity_to_index_map.erase(entity_id);
@@ -330,6 +353,9 @@ public:
         m_empty_index_queue.push(component_index);
     }
 
+    /**
+     * Remove component from entity if the entity have the component
+     */
     void handleEntityDestroyed(EntityIDNumber entity_id) override {
         auto index_pair = m_entity_to_index_map.find(entity_id);
         if (index_pair != m_entity_to_index_map.end()) {
@@ -457,6 +483,11 @@ public:
 };
 
 
+/**
+ * Data payload struct, meaning it only used to pass around data
+ * this one were used to passed component related data when a new component type
+ * is registered to ECS.
+ */
 struct ComponentDataPayload {
     ComponentTag ctag;
     ComponentType ctype;
@@ -464,24 +495,50 @@ struct ComponentDataPayload {
 };
 
 
+/**
+ * This class is the most important interface to the ECS system.
+ * EntityManager stored and keep tracks of all entities, their components, and
+ * systems associated to said components. More importantly, it provides interface
+ * to gain the states of those entities and interacts with ECS.
+ */
 class EntityManager{
 private:
 
-    EntityInfo m_entities[MAX_ENTITIES];                    // This is the ultimate source of truth regarding entities
-    std::queue<EntityIDNumber> m_unused_entity_queue;       // queue of unused entity IDs, take from this when creating new entity if available
-    EntityIDNumber m_last_available_entity_number;          // counter 
-    std::vector<EntityID> m_uninitialized_entities;         // for keeping track of uninitialized entity
-    ComponentManager* m_component_manager = nullptr;        // ComponentManager
+    EntityInfo m_entities[MAX_ENTITIES];                    //!< This is the ultimate source of truth regarding entities
+    std::queue<EntityIDNumber> m_unused_entity_queue;       //!< queue of unused entity IDs, take from this when creating new entity if available
+    EntityIDNumber m_last_available_entity_number;          //!< counter 
+    std::vector<EntityID> m_uninitialized_entities;         //!< for keeping track of uninitialized entity
+    ComponentManager* m_component_manager = nullptr;        //!< ComponentManager
 
 public:
     
     EntityManager();
     ~EntityManager();
 
+    /**
+     * Create a new entity and returns the ID of the newly created entity.
+     */
     EntityID createEntity();
+
+    /**
+     * return a vector of the IDs all entities
+     */
     std::vector<EntityID> getEntities();
+
+    /**
+     * return a vector of the IDs all uninitialized entities (their Init function
+     * haven't been called yet).
+     */
     std::vector<EntityID> getUninitializedEntities();
+
+    /**
+     * Remove entity from uninitialized list
+     */
     void setEntityAsInitialized(EntityID entity);
+
+    /**
+     * Clear the uninitialized entities list
+     */
     void resetEntitiesUninitializedStatus();
 
     void setComponentRegisterCallback(
@@ -496,6 +553,12 @@ public:
         return m_entities[entity_id].active;
     }
 
+    /**
+     * if this returns `true`, that means you can use the entity ID. If it
+     * return `false` it could mean that the ID have never been issued by 
+     * entityManager or that the ID have been reused and the entity that had
+     * previously used said ID have been deleted.
+     */
     bool isEntityValid(EntityID entity) {
         if (!isEntityActive(entity)) {
             return false;
@@ -506,10 +569,17 @@ public:
         return true;
     }
 
+    /**
+     * return the numbers of maximum allowable entities, you can change this
+     * by changing the value of MAX_ENTITIES in `include/pixbench/engine_config.h`
+     */
     size_t getMaxEntities() {
         return MAX_ENTITIES;
     }
 
+    /**
+     * Numbers of currently active entities.
+     */
     size_t getActiveEntityCounts() {
         size_t counts = 0;
         for (EntityIDNumber i=0; i<MAX_ENTITIES; ++i) {
@@ -523,6 +593,12 @@ public:
         return m_entities[entity_id];
     }
     
+    /**
+     * Adding component with type T to entity
+     * will return nullptr if:
+     *   1. entity is not valid, or
+     *   2. entity already have said component
+     */
     template<typename T>
     T* addComponentToEntity(EntityID entity)
     {
@@ -543,6 +619,11 @@ public:
         return getEntityComponent<T>(entity);
     };
 
+    /**
+     * will return nullptr if:
+     *   1. entity is not valid, or
+     *   2. entity already have said component
+     */
     template<typename T>
     bool removeComponentFromEntity(EntityID entity)
     {
@@ -564,6 +645,9 @@ public:
         return true;
     };
 
+    /**
+     * Invalid entity ID will also return `false`
+     */
     template<typename T>
     bool isEntityHasComponent(EntityID entity)
     {
@@ -575,6 +659,9 @@ public:
         return m_entities[entity.id].component_mask[component_index];
     };
 
+    /**
+     * Invalid entity ID will also return `false`
+     */
     bool isEntityHasComponent(EntityID entity, size_t component_index)
     {
         if (!isEntityValid(entity)) {
@@ -587,6 +674,10 @@ public:
         return false;
     };
 
+    /**
+     * This will remove all components related to an entity and then set the
+     * EntityIDD as inactive. The EntityID might be reused for new entity.
+     */
     void destroyEntity(EntityID entity) {
         // remove components
         this->m_component_manager->clearEntityComponents(entity.id);
@@ -599,10 +690,12 @@ public:
         this->m_entities[entity.id].component_mask.reset();
     };
     
+    /**
+     * Return 'nullptr' if component doesn't exist, return pointer to
+     * component if the component exists
+     */
     template <typename T>
     T* getEntityComponent(EntityID entity) {
-        // Return 'nullptr' if component doesn't exist, return pointer to
-        // component if the component exists
         
         if (!isEntityHasComponent<T>(entity)) {
             return nullptr;
@@ -611,6 +704,11 @@ public:
         return m_component_manager->getEntityComponent<T>(entity.id);
     };
 
+    /**
+     * Same as getEntityComponent(EntityID entity)
+     * Although in this one, you query the component using the component type index
+     * used by ComponentManager.
+     */
     template <typename T>
     T* getEntityComponentCasted(EntityID entity, size_t component_index) {
         if (!isEntityValid(entity)) {
@@ -623,6 +721,9 @@ public:
         return m_component_manager->getEntityComponentCasted<T>(entity.id, component_index);
     };
 
+    /**
+     * Get component type hash of component T used by ComponentManager
+     */
     template<typename T>
     ComponentType getComponentIndex() {
         m_component_manager->getComponentIndex<T>();
@@ -630,10 +731,14 @@ public:
 };
 
 
-// Usage example:
-// for (EntityID ent : EntityView(entity_mgr, mask, true)) {
-//     // do stuff
-// }
+/**
+ * Usage example:
+ * ~~~~~~~~~~~~~~~~{.cpp}
+ * for (EntityID ent : EntityView(entity_mgr, mask, true)) {
+ *     // do stuff
+ * }
+ * ~~~~~~~~~~~~~~~~
+ */
 class EntityView {
 private:
     EntityManager* m_entity_mgr;

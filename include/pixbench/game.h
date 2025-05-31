@@ -17,41 +17,157 @@ class ISystem;
 class ScriptSystem;
 
 
+/**
+ * Game object contains all contexts and manages everything related to the
+ * running of the game. Game object also the one that pass SDL event and
+ * callbacks to game entities and systems.
+ */
 class Game {
 private:
+    //!< config for the game
     GameConfig gameConfig;
+    //!< basepath of the executable
     std::string basePath;
 public:
-    const char* title;
-    RenderContext* renderContext;
-    EntityManager* entityManager = nullptr;
+    const char* title;                          //!< game title
+    RenderContext* renderContext;               //!< global render context
+    EntityManager* entityManager = nullptr;     //!< global entityManager, created when Game::Initialize() were called
 
-    std::shared_ptr<ISystem> scriptSystem = nullptr;
-    std::vector<std::shared_ptr<ISystem>> ecs_systems;
+    std::shared_ptr<ISystem> scriptSystem = nullptr;    //!< script system
+    std::vector<std::shared_ptr<ISystem>> ecs_systems;  //!< array of systems in ECS
 
-    double lastTicksNS = 0;
-    bool isRunning = false;
+    double lastTicksNS = 0;                     //!< used to keep tracks of game ticks
+    bool isRunning = false;                     //!< Reflecting the status of whether the game is currently running or not
     
+    /**
+     * Game constructor, usage:
+     * ~~~~~~~~~~~~~~~~~~~~{.cpp}
+     * Game* game = new Game();
+     * ~~~~~~~~~~~~~~~~~~~~
+     */
     Game ();
     ~Game();
 
+    /**
+     * **User defined function** that sould be overriden. This function
+     * shall be used to create a Game object and calling the Game::Initialize()
+     * function.
+     * Example of the usage of this function
+     * ~~~~~~~~~~~~~~~~~~~~~~~~{.cpp}
+     * Game* Game::CreateGame() {
+     *     Game* game = new Game();
+     * 
+     *     GameConfig gConfig = GameConfig();
+     *     gConfig.game_title      = "Pixel Node - Game";
+     *     gConfig.render_vsync_enabled = true;
+     *     gConfig.render_clear_color   = Color(255, 255, 100, 255);
+     *     game->ApplyGameConfig(gConfig);
+     * 
+     *     game->Initialize();
+     * 
+     *     return game;
+     * }
+     * ~~~~~~~~~~~~~~~~~~~~~~~~
+     */
     static Game* CreateGame();
+
+    /**
+     * **User defined function** that should be overriden by the user. You can
+     * loads assets and then creates your entities here.
+     * example usage: 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~{.cpp}
+     * void Game::InitializeGame(Game* game) {
+     *     auto ent_mgr = game->entityManager;
+     *     EntityID ent = ent_mgr->createEntity();
+     * 
+     *     Transform* transform = ent_mgr->addComponentToEntity<Transform>(ent);
+     * 
+     *     class QuitHandlerScript : public ScriptComponent {
+     *     public:
+     *         Game* m_game = nullptr; // object reference to pointer
+     *         
+     *         void Init(Game *game, EntityManager *entityManager, EntityID self) override {
+     *             m_game = game;
+     *         }
+     * 
+     *         void quitTheGame() {
+     *             std::cout << "QuitHandlerScript::quitTheGame called, will quit the game" << std::endl;
+     *             if (m_game)
+     *                 m_game->Quit();
+     *         }
+     * 
+     *         void OnEvent(SDL_Event *event, EntityManager *entityManager, EntityID self) override {
+     *             if (event->type == SDL_EVENT_QUIT) {
+     *                 quitTheGame();
+     *             }
+     * 
+     *             if (event->type == SDL_EVENT_KEY_DOWN && event->key.key == SDLK_Q) {
+     *                 quitTheGame();
+     *             }
+     *         }
+     *     };
+     *     
+     *     ent_mgr->addComponentToEntity<QuitHandlerScript>(ent);
+     * }
+     * ~~~~~~~~~~~~~~~~~~~~~~~~
+     */
     static void InitializeGame(Game*);
 
+    /**
+     * Apply game config created using GameConfig class. Only called this
+     * inside Game::CreateGame() function
+     */
     void ApplyGameConfig(GameConfig newConfig);
 
+    /**
+     * Called by Game::Initialize()
+     * Initialized required utilities used by Game object 
+     * (e.g. random number generator, geting base path, etc.)
+     */
     void PrepareUtils();
+
+    /**
+     * Create renderContext and apply configs (e.g vsync)
+     */
     void PrepareRenderer(int windowWidth, int windowHeight);
 
+    /**
+     * Initialize a Game
+     * This function will initialize SDL, create window, setting up renderer, etc.
+     * 
+     * **Note**: *don't forget to call this function in Game::CreateGame() that you've 
+     * defined.*
+     */
     void Initialize();
 
+    /**
+     * Called by SDL_AppIterate callback
+     * This function will call Init, Update, LateUpdate, FixedUpdate, PreDraw,
+     * and Draw to all registered systems that implement it.
+     */
     void Itterate();
+
+    /**
+     * Callback called when a new Component type is registered to ComponentManager
+     */
     void OnComponentRegistered(ComponentDataPayload component_payload);
+
+    /**
+     * Called by SDL_AppEvent callback to pass down event to all registered systems.
+     */
     void OnEvent(SDL_Event *event);
+
+    /**
+     * Quit the game
+     */
     void Quit();
+
     void OnError();
     void OnExit();
 
+    /**
+     * Return base_path of the game executable.
+     */
     std::string& GetBasePath() {return basePath;};
 };
 
