@@ -1,6 +1,8 @@
 #include "pixbench/ecs.h"
+#include "pixbench/renderer.h"
 #include "pixbench/vector2.h"
 #include <SDL3/SDL_render.h>
+#include <algorithm>
 #include <bitset>
 #include <cmath>
 #include <memory>
@@ -122,7 +124,7 @@ void RenderingSystem::Initialize(Game* game, EntityManager* entity_mgr) {
             if (!(entity_mgr->isEntityHasComponent(ent_id, cindex))) {
                 continue; // skip if entity doesn't have this particular renderable component
             }
-            
+
             RenderableComponent* renderable = entity_mgr->getEntityComponentCasted<RenderableComponent>(
                     ent_id, cindex);
             Transform* transform = entity_mgr->getEntityComponent<Transform>(ent_id);
@@ -135,8 +137,8 @@ void RenderingSystem::Initialize(Game* game, EntityManager* entity_mgr) {
 
 void RenderingSystem::LateUpdate(double delta_time_s, EntityManager* entity_mgr) {
     // Performing animation update (moving the srect)
-    std::cout << "RenderingSystem::Update" << std::endl;
-    
+    std::cout << "RenderingSystem::LateUpdate" << std::endl;
+
     for (EntityID ent_id : EntityView(entity_mgr, m_renderable_components_mask, false)) {
         if ( !(entity_mgr->isEntityHasComponent<Transform>(ent_id)) )
             continue;
@@ -154,34 +156,59 @@ void RenderingSystem::LateUpdate(double delta_time_s, EntityManager* entity_mgr)
 
             if (!renderable)
                 continue;
-            
+
             renderable->transform = transform;
-            
+
             if (renderable->getRenderableTag() == RCTAG_Sprite) {
                 Sprite* sprite = static_cast<Sprite*>(renderable);
-                
+
                 if ( !sprite )
                     continue;
-                
-                if (auto sprite_anim = sprite->GetSpriteAnimation().lock()) {
-                    sprite->current_anim_time_s += delta_time_s;
-                    int elapsed_frames = std::floor(sprite->current_anim_time_s * (double)sprite_anim->animation_speed);
-                    double time_residue = std::fmod(sprite->current_anim_time_s, 1.0/(double)sprite_anim->animation_speed);
-                    sprite->current_anim_time_s = time_residue;
 
-                    sprite->current_frame += elapsed_frames;
+                if ( sprite->paused )
+                    continue;
+
+                auto sprite_anim = sprite->GetSpriteAnimation().lock();
+                if ( !sprite_anim ) {
+                    std::cout << "ENT" << ent_id.id << " DOESN'T HAVE SPRITE ANIM" << std::endl;
+                    continue;
+                }
+
+                sprite->current_anim_time_s += delta_time_s;
+                int elapsed_frames = std::floor(sprite->current_anim_time_s * (double)sprite_anim->animation_speed);
+                double time_residue = std::fmod(sprite->current_anim_time_s, 1.0/(double)sprite_anim->animation_speed);
+                sprite->current_anim_time_s = time_residue;
+                sprite->current_frame += elapsed_frames;
+
+                const int frame_counts = 1 + sprite_anim->end_sheet_index - sprite_anim->start_sheet_index;
+                if (sprite_anim->repeat) {
                     sprite->current_frame = std::fmod(
                             sprite->current_frame,
-                            1 + sprite_anim->end_sheet_index - sprite_anim->start_sheet_index
+                            frame_counts
                             );
+                } else {
+                    sprite->current_frame = std::min(sprite->current_frame, frame_counts-1);
+                }
 
-                    sprite->srect = sprite_anim->res_sheet->GetRectByFrameIndex(sprite->current_frame);
+                sprite->srect = sprite_anim->res_sheet->GetRectByFrameIndex(sprite->current_frame);
+            }
+            else if (renderable->getRenderableTag() == RCTAG_Tile) {
+                // loop over tile
+                Tile* tile = static_cast<Tile*>(renderable);
+                if ( !tile )
+                    continue;
+
+                auto tile_map = tile->getTileMap().lock();
+                if ( !tile_map )
+                    continue;
+
+                for (unsigned int i=0; i < tile_map->tile_counts; ++i) {
+                    TileAnimation* tile_anim = tile_map->getTileAnimation(i);
+                    if ( !tile_anim )
+                        continue;
+
+                    tile_anim->advanceFrameByTime(delta_time_s * 1000.0);
                 }
-                else {
-                    std::cout << "ENT" << ent_id.id << " DOESN'T HAVE SPRITE ANIM" << std::endl;
-                }
-                // TO DO: Update animation for TileSet, etc
-                // else if ...
             }
         }
     }
@@ -192,7 +219,6 @@ void RenderingSystem::LateUpdate(double delta_time_s, EntityManager* entity_mgr)
 
 void RenderingSystem::PreDraw(RenderContext* renderContext, EntityManager* entity_mgr) {
     std::cout << "RenderingSystem::PreDraw" << std::endl;
-    // TO DO: visibility checks
     ordered_renderables.clear();
     for (EntityID ent_id : EntityView(entity_mgr, m_renderable_components_mask, false)) {
         if ( !(entity_mgr->isEntityHasComponent<Transform>(ent_id)) )
@@ -223,10 +249,10 @@ void RenderingSystem::PreDraw(RenderContext* renderContext, EntityManager* entit
                         - renderContext->camera_position.x
                         );
                 sprite->drect.y = (
-                        sprite->offset.y + sprite->transform->GlobalPosition().y 
+                        sprite->offset.y + sprite->transform->GlobalPosition().y
                         - renderContext->camera_position.y
                         );
-                
+
                 SDL_FRect r = sprite->drect;
                 float screen_w = renderContext->camera_size.x;
                 float screen_h = renderContext->camera_size.y;
@@ -241,9 +267,8 @@ void RenderingSystem::PreDraw(RenderContext* renderContext, EntityManager* entit
                 }
             }
             else if (renderable->getRenderableTag() == RCTAG_Tile) {
-                // TODO: check if tile rect is visible
                 Tile* tile = static_cast<Tile*>(renderable);
-                if (!tile) 
+                if (!tile)
                     continue;
 
                 if (auto tile_map = tile->getTileMap().lock()) {
@@ -266,7 +291,7 @@ void RenderingSystem::PreDraw(RenderContext* renderContext, EntityManager* entit
                        ) { // skip if not visible
                         continue;
                     }
-                    
+
                 }
             }
             else if (renderable->getRenderableTag() == RCTAG_Script) {
@@ -277,10 +302,10 @@ void RenderingSystem::PreDraw(RenderContext* renderContext, EntityManager* entit
                         - renderContext->camera_position.x
                         );
                 custom_renderable->drect.y = (
-                        custom_renderable->offset.y + custom_renderable->transform->GlobalPosition().y 
+                        custom_renderable->offset.y + custom_renderable->transform->GlobalPosition().y
                         - renderContext->camera_position.y
                         );
-                
+
                 SDL_FRect r = custom_renderable->drect;
                 float screen_w = renderContext->camera_size.x;
                 float screen_h = renderContext->camera_size.y;
@@ -298,7 +323,7 @@ void RenderingSystem::PreDraw(RenderContext* renderContext, EntityManager* entit
             ordered_renderables.push_back(renderable);
         }
     }
-    
+
     // Calculate render order by depth (higher is the closer forward)
     std::sort(
             ordered_renderables.begin(),
@@ -313,7 +338,7 @@ void RenderingSystem::PreDraw(RenderContext* renderContext, EntityManager* entit
 
 void RenderingSystem::Draw(RenderContext* renderContext, EntityManager* entity_mgr) {
     std::cout << "RenderingSystem::Draw" << std::endl;
-    
+
     for (RenderableComponent* renderable : ordered_renderables) {
         if (renderable->getRenderableTag() == RCTAG_Sprite) {
             Sprite* sprite = static_cast<Sprite*>(renderable);
@@ -333,14 +358,11 @@ void RenderingSystem::Draw(RenderContext* renderContext, EntityManager* entity_m
                 std::cout << "SDL error:" << std::endl << SDL_GetError() << std::endl;
             }
         }
-        // TODO: Implement for other renderable types
-        // else if (renderable->getRenderableTag() == RCTAG_Tile) {...
         else if (renderable->getRenderableTag() == RCTAG_Script) {
             CustomRenderable* custom_renderable = static_cast<CustomRenderable*>(renderable);
             custom_renderable->Draw(renderContext, entity_mgr);
         }
         else if (renderable->getRenderableTag() == RCTAG_Tile) {
-            // Notes: let's skip tiles animation for now
             // Find the ranges of tiles in the map to render
 
             Tile* tile = static_cast<Tile*>(renderable);
@@ -352,7 +374,7 @@ void RenderingSystem::Draw(RenderContext* renderContext, EntityManager* entity_m
             auto atlass = tile_map->getAtlass().lock();
             if (!atlass)
                 continue;
-            
+
             SDL_FRect r = tile->drect;
             auto cam_size = renderContext->camera_size;
             int start_col = std::floor(std::max(0.0f, -r.x) / tile_map->tile_w);
@@ -367,6 +389,7 @@ void RenderingSystem::Draw(RenderContext* renderContext, EntityManager* entity_m
                     );
 
             // Perform for loop to draw tiles
+            // this first pass is only for drawing non animated tiles
             SDL_FRect srect, drect;
             drect.w = tile_map->tile_w;
             drect.h = tile_map->tile_h;
@@ -377,6 +400,31 @@ void RenderingSystem::Draw(RenderContext* renderContext, EntityManager* entity_m
                     if (tile_id == 0)
                         continue;
 
+                    srect = atlass->getRectByIndex(tile_id-1);
+                    drect.x = tile->drect.x + c * tile_map->tile_w;
+                    drect.y = tile->drect.y + r * tile_map->tile_h;
+
+                    SDL_RenderTexture(
+                            renderContext->renderer,
+                            atlass->getTexture()->texture,
+                            &srect, &drect
+                            );
+                }
+            }
+
+            // this the second pass for Tile,
+            // this one is for drawing animated tiles.
+            for (int c=start_col; c<end_col; ++c) {
+                for (int r=start_row; r<end_row; ++r) {
+                    unsigned int anim_tile_id = tile_map->getTileIDbyTilePosition(r, c);
+                    if (anim_tile_id == 0)
+                        continue;
+
+                    TileAnimation* tile_anim = tile_map->getTileAnimation(anim_tile_id);
+                    if (!tile_anim)
+                        continue;
+
+                    unsigned int tile_id = tile_anim->getCurrentFrame()->tile_id;
                     srect = atlass->getRectByIndex(tile_id-1);
                     drect.x = tile->drect.x + c * tile_map->tile_w;
                     drect.y = tile->drect.y + r * tile_map->tile_h;

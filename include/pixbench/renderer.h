@@ -6,8 +6,11 @@
 #include "pixbench/vector2.h"
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_render.h>
+#include <cmath>
 #include <iostream>
 #include <memory>
+#include <unordered_map>
+#include <vector>
 
 class RenderContext {
 public:
@@ -31,14 +34,14 @@ public:
                     SDL_WINDOW_RESIZABLE,
                     /*&new_window, &new_renderer*/
                     &(this->window), &(this->renderer)
-                )) { 
+                )) {
             // SDL_WINDOW_SHOWN for unresizeable window
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Can't initialized SDL: %s", SDL_GetError());
             /*return 3;*/
         }
         this->SetCameraContext(camera_position, camera_size);
     }
-    
+
     ~RenderContext() {
         SDL_DestroyRenderer(this->renderer);
         SDL_DestroyWindow(this->window);
@@ -62,7 +65,7 @@ class SpriteSheet {
 public:
     int sheet_count;
     std::shared_ptr<Res_SDL_Texture> res_texture;
-    
+
     SpriteSheet(
             std::shared_ptr<Res_SDL_Texture> res_texture,
             float start_x, float start_y,
@@ -91,7 +94,7 @@ public:
         this->vertical_count = 0;
         int hor_residual = res_texture->texture->w - start_x;
         int ver_residual = res_texture->texture->h - start_y;
-        
+
         while (hor_residual > 0) {
             ++(this->horizontal_count);
             hor_residual -= (sprite_size_x + pad_x);
@@ -110,7 +113,7 @@ public:
             std::cout << "[][][]GetRectByFrameIndex <<sheet_count = 0>> [][][]" << std::endl;
             return SDL_FRect {.x = 0, .y = 0, .w = 0, .h = 0};
         }
-        
+
         frame_index %= this->sheet_count;
 
         int x_i = frame_index % this->horizontal_count;
@@ -142,15 +145,18 @@ class SpriteAnimation {
 public:
     int start_sheet_index, end_sheet_index;
     int animation_speed;
+    bool repeat = true;
     std::shared_ptr<SpriteSheet> res_sheet;
-    
+
     SpriteAnimation(
             std::shared_ptr<SpriteSheet> res_sheet,
-            int start_sheet_index, int end_sheet_index
+            int start_sheet_index, int end_sheet_index,
+            bool repeat = true
             ) {
         this->start_sheet_index = start_sheet_index;
         this->end_sheet_index = end_sheet_index;
         this->res_sheet = res_sheet;
+        this->repeat = repeat;
 
         if (start_sheet_index < 0 || end_sheet_index > res_sheet->sheet_count) {
             /*TODO: ERROR*/
@@ -175,7 +181,7 @@ public:
             std::shared_ptr<Res_SDL_Texture> tile_texture,
             int tile_w, int tile_h,
             int margin_x = 0, int margin_y = 0
-           ) 
+           )
         :
             m_sheet(tile_texture, 0, 0, tile_w, tile_h, margin_x, margin_y)
     {
@@ -204,16 +210,102 @@ public:
 };
 
 
+class TileAnimationFrame {
+public:
+    unsigned int tile_id = 0;
+    double duration_ms = 100.0;
+};
+
+
+class TileAnimation {
+private:
+    // animation data
+    std::vector<TileAnimationFrame> m_frames;
+    // animation states
+    unsigned int m_current_index = 0;
+    double m_elapsed_time = 0.0;
+public:
+
+    TileAnimation() {};
+
+    TileAnimation (
+            std::vector<TileAnimationFrame> frames
+            )
+    {
+        setFrames(frames);
+    }
+
+    void setFrames(std::vector<TileAnimationFrame> frames) {
+        m_frames = frames;
+    }
+
+    inline unsigned int getCurrentFrameIndex() {
+        return m_current_index;
+    }
+
+    inline unsigned int getTotalNumberOfFrames() {
+        return m_frames.size();
+    }
+
+    inline void setFrameToSpecificIndex(unsigned int new_index) {
+        m_current_index = new_index % this->getTotalNumberOfFrames();
+    }
+
+    inline void continueToNextFrame() {
+        m_current_index++;
+        m_current_index = m_current_index % this->getTotalNumberOfFrames();
+    }
+
+    void advanceFrameByTime(double time_ms = 100.0) {
+        m_elapsed_time += time_ms;
+        const double current_frame_duration = getCurrentFrame()->duration_ms;
+        if (m_elapsed_time >= current_frame_duration) {
+            m_elapsed_time = std::fmod(m_elapsed_time, current_frame_duration);
+            continueToNextFrame();
+        }
+    }
+
+    inline TileAnimationFrame* getCurrentFrame() {
+        return &m_frames[m_current_index];
+    }
+};
+
+
 /*TileMapLayer*/
 class TileMapLayer {
 private:
     std::shared_ptr<TileSet> m_atlass;
     unsigned int* m_map = nullptr;
+    unsigned int* m_anim_map = nullptr;
+    std::unordered_map<unsigned int, TileAnimation> m_tile_anims;
 public:
     int rows, columns;              // number of tiles in a row/column
     int width, height;              // width and height of tilemaplayer int pixels
     int tile_w, tile_h;             // tile size (pixels)
     int tile_counts;                // total number of tiles
+
+    bool addTileAnimation(unsigned int index, TileAnimation tile_anim) {
+        auto exist_it = m_tile_anims.find(index);
+        if (exist_it != m_tile_anims.end())
+            return false;
+
+        m_tile_anims[index] = tile_anim;
+
+        return true;
+    }
+
+    void replaceTileAnimationAtIndex(unsigned int index, TileAnimation tile_anim) {
+        m_tile_anims[index] = tile_anim;
+    }
+
+    TileAnimation* getTileAnimation(unsigned int index) {
+        auto exist_it = m_tile_anims.find(index);
+        if (exist_it == m_tile_anims.end())
+            return nullptr;
+
+        return &(exist_it->second);
+        // return &m_tile_anims[index];
+    }
 
     TileMapLayer(
             std::shared_ptr<TileSet> atlass,
@@ -234,14 +326,22 @@ public:
         for (size_t i=0; i<tile_counts; ++i) {
             m_map[i] = 0;
         }
+
+        m_anim_map = new unsigned int[tile_counts];
+        for (size_t i=0; i<tile_counts; ++i) {
+            m_anim_map[i] = 0;
+        }
     }
 
     ~TileMapLayer() {
         if (m_map)
             delete [] m_map;
+
+        if (m_anim_map)
+            delete [] m_anim_map;
     }
 
-    int getIndexByTile(int r, int c) { // r and c starts at 1
+    unsigned int getIndexByTile(int r, int c) { // r and c starts at 1
         return c + r*columns;
     }
 
@@ -249,21 +349,63 @@ public:
         return m_map[index];
     }
 
+    int getAnimationTileIDbyIndex(int index) {
+        return m_anim_map[index];
+    }
+
+    /**
+     * Set the value of tile map at position rows r and columns c to
+     * `tile_id`.
+     * If `tile_id` is for animated tile it will set the value of animated map instead.
+     */
+    void setTileIDatTilePosition(int r, int c, unsigned int tile_id) {
+        unsigned int tile_index = getIndexByTile(r, c);
+        auto it_exists = m_tile_anims.find(tile_index);
+        if (it_exists != m_tile_anims.end()) {
+            // write to animation map
+            m_anim_map[tile_index] = tile_id;
+            m_map[tile_index] = 0;
+        }
+        else {
+            // write to non-animation map
+            m_anim_map[tile_index] = 0;
+            m_map[tile_index] = tile_id;
+        }
+    }
+
     unsigned int* getTilePointerbyIndex(int index) {
         return &m_map[index];
+    }
+
+    unsigned int* getAnimationTilePointerbyIndex(int index) {
+        return &m_anim_map[index];
     }
 
     int getTileIDbyTilePosition(int r, int c) {
         return getTileIDbyIndex(getIndexByTile(r, c));
     }
 
+    int getAnimationTileIDbyTilePosition(int r, int c) {
+        return getAnimationTileIDbyIndex(getIndexByTile(r, c));
+    }
+
     unsigned int* getTilePointerbyTilePosition(int r, int c) {
         return getTilePointerbyIndex(getIndexByTile(r, c));
+    }
+
+    unsigned int* getAnimationTilePointerbyTilePosition(int r, int c) {
+        return getAnimationTilePointerbyIndex(getIndexByTile(r, c));
     }
 
     void clearMap(unsigned int clear_value = 0) {
         for (int i=0; i<tile_counts; ++i) {
             m_map[i] = clear_value;
+        }
+    }
+
+    void clearAnimationMap(unsigned int clear_value = 0) {
+        for (int i=0; i<tile_counts; ++i) {
+            m_anim_map[i] = clear_value;
         }
     }
 

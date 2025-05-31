@@ -123,6 +123,8 @@ public:
     Vector2 offset;                                        // offset for rendering Sprite relative to transform
     std::shared_ptr<Res_SDL_Texture> texture = nullptr;    // texture to render
 
+    bool paused = false;
+
     RenderableTag getRenderableTag() const override {
         return RCTAG_Sprite;
     };
