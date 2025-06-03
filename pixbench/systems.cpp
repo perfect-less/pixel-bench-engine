@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <bitset>
 #include <cmath>
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -21,6 +22,22 @@ void ScriptSystem::OnComponentRegistered(const ComponentDataPayload* component_i
 
     if (ctag == CTAG_Script) {
         this->m_script_components_mask.set(cindex);
+    }
+}
+
+
+void ScriptSystem::OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id) {
+    for (size_t cindex=0; cindex<MAX_COMPONENTS; ++cindex) {
+        if (!(this->m_script_components_mask[cindex]))
+            continue; // skip non-script components
+
+        ScriptComponent* script_comp = entity_mgr->getEntityComponentCasted<ScriptComponent>(
+                entity_id, cindex);
+
+        if ( !script_comp )
+            continue;
+
+        script_comp->OnDestroy(entity_mgr, entity_id);
     }
 }
 

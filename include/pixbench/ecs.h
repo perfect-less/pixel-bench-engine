@@ -354,7 +354,7 @@ public:
     }
 
     /**
-     * Remove component from entity if the entity have the component
+     * Remove components from entity if the entity have the component
      */
     void handleEntityDestroyed(EntityIDNumber entity_id) override {
         auto index_pair = m_entity_to_index_map.find(entity_id);
@@ -510,6 +510,11 @@ private:
     std::vector<EntityID> m_uninitialized_entities;         //!< for keeping track of uninitialized entity
     ComponentManager* m_component_manager = nullptr;        //!< ComponentManager
 
+    /**
+     * callback to `Game` when destroyEntity() was called
+     */
+    std::function<void(EntityID entity_id)> m_on_entity_destroyed_callback { nullptr };
+
 public:
     
     EntityManager();
@@ -541,8 +546,21 @@ public:
      */
     void resetEntitiesUninitializedStatus();
 
+    /**
+     * Set ComponentManager's `component_registered_callback`.
+     * This callback were used by ComponentManager to notify upwards towards the `Game` object
+     * that there's new component registered, `Game` object can then propagate the signal
+     * downwards towards all the systems in ECS.
+     *
+     * It was done this way to avoid `EntityManager` referencing `Game` object because
+     * the header file resolution for that scenario is not easy.
+     */
     void setComponentRegisterCallback(
             std::function<void(ComponentTag, ComponentType, size_t)>
+            );
+
+    void setOnEntityDestroyedCallback(
+            std::function<void(EntityID entity_id)>
             );
 
     bool isEntityActive(EntityID entity) {
@@ -679,6 +697,10 @@ public:
      * EntityIDD as inactive. The EntityID might be reused for new entity.
      */
     void destroyEntity(EntityID entity) {
+        // notify systems
+        if (this->m_on_entity_destroyed_callback)
+            m_on_entity_destroyed_callback(entity);
+
         // remove components
         this->m_component_manager->clearEntityComponents(entity.id);
         // deactivate entity
@@ -689,6 +711,20 @@ public:
         // reset component mask
         this->m_entities[entity.id].component_mask.reset();
     };
+
+    /*
+     * Destroy all entities available in EntityManager.
+     * 
+     * Read more on `destroyEntity`
+     */
+    void destroyAllEntities() {
+        for (EntityIDNumber i=0; i<MAX_ENTITIES; ++i) {
+            if (isEntityActive(i)) {
+                EntityID ent_id = m_entities[i].entityid;
+                this->destroyEntity(ent_id);
+            }
+        }
+    }
     
     /**
      * Return 'nullptr' if component doesn't exist, return pointer to
@@ -898,6 +934,7 @@ public:
     virtual void LateUpdate(double delta_time_s, EntityManager* entity_mgr) {};
     virtual void PreDraw(RenderContext* renderContext, EntityManager* entity_mgr) {};
     virtual void Draw(RenderContext* renderContext, EntityManager* entity_mgr) {};
+    virtual void OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id) {};
     virtual void OnError(EntityManager* entity_mgr) {};
     virtual void OnExit(EntityManager* entity_mgr) {};
 };
@@ -933,6 +970,7 @@ public:
     void LateUpdate(double delta_time_s, EntityManager* entity_mgr);
     // void PreDraw(RenderContext* renderContext, EntityManager* entity_mgr);
     // void Draw(RenderContext* renderContext, EntityManager* entity_mgr);
+    void OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id);
     /*void OnError(EntityManager* entity_mgr);*/
     /*void OnExit(EntityManager* entity_mgr);*/
 };

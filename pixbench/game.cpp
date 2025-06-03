@@ -63,6 +63,12 @@ void Game::Initialize() {
             this->OnComponentRegistered(payload);
             }
             );
+    this->entityManager->setOnEntityDestroyedCallback(
+            [this] (EntityID entity_id)
+            {
+            this->OnEntityDestroyed(entity_id);
+            }
+            );
 
     this->scriptSystem = std::make_shared<ScriptSystem>();
     this->ecs_systems.push_back(std::make_shared<RenderingSystem>());
@@ -105,6 +111,13 @@ void Game::PrepareRenderer(int windowWidth, int windowHeight) {
 void Game::OnComponentRegistered(ComponentDataPayload component_payload) {
     for (auto& system : this->ecs_systems) {
         system->OnComponentRegistered(&component_payload);
+    }
+}
+
+
+void Game::OnEntityDestroyed(EntityID entity_id) {
+    for (auto& system : this->ecs_systems) {
+        system->OnEntityDestroyed(this->entityManager, entity_id);
     }
 }
 
@@ -193,4 +206,19 @@ void Game::Itterate() {
 void Game::Quit () {
     SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Game::Quit Called");
     this->isRunning = false;
+}
+
+
+void Game::OnExit() {
+    // destroy all entities (along it's components)
+    this->entityManager->destroyAllEntities();
+
+    // destroy all systems
+    // free SDL
+}
+
+
+void Game::OnError() {
+    // log error
+    // exit the game ( calls OnExit() )
 }

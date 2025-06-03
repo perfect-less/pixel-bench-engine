@@ -12,6 +12,7 @@
 
 
 struct ComponentDataPayload;
+struct EntityID;
 class EntityManager;
 class ISystem;
 class ScriptSystem;
@@ -149,8 +150,16 @@ public:
 
     /**
      * Callback called when a new Component type is registered to ComponentManager
+     *
+     * Read more on: `EntityManager::setOnEntityDestroyedCallback`
      */
     void OnComponentRegistered(ComponentDataPayload component_payload);
+
+    /**
+     * Callback called when an entity will be destroyed.
+     *
+     */
+    void OnEntityDestroyed(EntityID entity_id);
 
     /**
      * Called by SDL_AppEvent callback to pass down event to all registered systems.

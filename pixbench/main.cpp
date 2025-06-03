@@ -68,6 +68,9 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result)
      * also explicitly free window and renrerer.*/
     std::cout << "SDL_AppQuit called" << std::endl;
     AppState& state = *static_cast<AppState*>(appstate);
+
+    state.game->OnExit();
+
     std::cout << "deleting game" << std::endl;
     delete state.game;
     std::cout << "game deleted" << std::endl;
