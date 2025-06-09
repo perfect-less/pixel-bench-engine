@@ -214,11 +214,17 @@ void Game::OnExit() {
     this->entityManager->destroyAllEntities();
 
     // destroy all systems
-    // free SDL
+    for (auto& system : this->ecs_systems) {
+        system->OnExit(this->entityManager);
+    }
+    
+    // SDL_window and SDL_renderere will be handled by renderContext
 }
 
 
 void Game::OnError() {
-    // log error
-    // exit the game ( calls OnExit() )
+    // TODO: log error
+    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "An Error has occured"); // TEMPORARY
+    // exit the game
+    this->OnExit();
 }
