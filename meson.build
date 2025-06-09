@@ -29,7 +29,7 @@ engine_sources = [
 sources = []
 
 # Subdir inclusions
-# subdir('test/')  # unit tests
+subdir('test/')  # unit tests
 subdir('src/')   # game sources
 
 # Game executable
