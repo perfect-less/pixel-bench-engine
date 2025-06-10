@@ -30,14 +30,23 @@ void Game::ApplyGameConfig (GameConfig newConfig) {
     this->gameConfig = newConfig;
 }
 
-void Game::Initialize() {
-    PrepareUtils();
+Result<VoidResult, GameError> Game::Initialize() {
+    auto res = PrepareUtils();
+    if ( !res.isOk() )
+        return res;
 
-    SDL_SetAppMetadata(
+    bool is_success = SDL_SetAppMetadata(
             this->gameConfig.game_title.c_str(),
             this->gameConfig.game_version.c_str(),
             this->gameConfig.game_identifier.c_str()
             );
+    if ( !is_success )
+        return Result<VoidResult, GameError>::Err(
+                GameError(
+                    "Can't set app metadata with SDL_SetAppMetadata. "
+                    "Perhaps there's a problem with the SDL installation"
+                    )
+                );
 
     // Initialize SDL
     SDL_InitFlags init_flag = SDL_INIT_VIDEO;
@@ -45,12 +54,17 @@ void Game::Initialize() {
         init_flag |= SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD;
     if (!SDL_Init(init_flag)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Can't initialized SDL: %s`", SDL_GetError());
+        return Result<VoidResult, GameError>::Err(
+                GameError("Can't initialize SDL")
+                );
     }
 
-    PrepareRenderer(
+    res = PrepareRenderer(
             this->gameConfig.window_width,
             this->gameConfig.window_height
             );
+    if ( !res.isOk() )
+        return res;
 
     this->entityManager = new EntityManager();
     this->entityManager->setComponentRegisterCallback(
@@ -75,23 +89,34 @@ void Game::Initialize() {
     this->ecs_systems.push_back(scriptSystem);
 
     this->isRunning = true;
+
+    return Result<VoidResult, GameError>::Ok(VoidResult::empty);
 }
 
-void Game:: PrepareUtils() {
+Result<VoidResult, GameError> Game:: PrepareUtils() {
     // Prepare for random number generator
-    PrepareRandomGenerator();
+    // PrepareRandomGenerator();
 
     // Base path of the executable
-    this->basePath = SDL_GetBasePath();
+    const char* base_path_cstr = SDL_GetBasePath();
+    if ( !base_path_cstr )
+        return Result<VoidResult, GameError>::Err(
+                GameError("Can't obtain executable base path using SDL_GetBasePath")
+                );
+
+    this->basePath = base_path_cstr;
+
+    return Result<VoidResult, GameError>::Ok(VoidResult::empty);
 }
 
 
-void Game::PrepareRenderer(int windowWidth, int windowHeight) {
+Result<VoidResult, GameError> Game::PrepareRenderer(int windowWidth, int windowHeight) {
 
     if (renderContext) {
-
-        std::cout << "renderContext already initialized" << std::endl;
         /* Should fail as renderContext has been initialized */
+        return Result<VoidResult, GameError>::Err(
+                GameError("PrepareRenderer() failed, renderContext already initialized")
+                );
     }
     this->renderContext = new RenderContext(
             this->gameConfig.game_title.c_str(),
@@ -102,9 +127,14 @@ void Game::PrepareRenderer(int windowWidth, int windowHeight) {
 
     if (this->gameConfig.render_vsync_enabled) {
         if (!SDL_SetRenderVSync(this->renderContext->renderer, 1)) {
-            SDL_Log("Couln't enable VSync.");
+            SDL_Log("Couldn't enable VSync.");
+            Result<VoidResult, GameError>::Err(
+                    GameError("Couldn't enable VSync with SDL.")
+                    );
         }
     }
+
+    return Result<VoidResult, GameError>::Ok(VoidResult::empty);
 }
 
 

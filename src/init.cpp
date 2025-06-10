@@ -1,4 +1,5 @@
 #include "pixbench/ecs.h"
+#include "pixbench/game.h"
 #include "pixbench/renderer.h"
 #include "pixbench/resource.h"
 #include "pixbench/utils.h"
@@ -35,7 +36,17 @@ Game* Game::CreateGame() {
     game->ApplyGameConfig(gConfig);
 
     /* Initialize Game (create renderer, window, etc.) */
-    game->Initialize();
+    Result<VoidResult, GameError> res = game->Initialize();
+    if ( res.isError() ) {
+        /* error checking to make sure game initialization actually runs
+         * successfuly
+         */
+        std::cout << "Can't Initialize Game: "
+            << res.getErrResult()->err_message
+            << std::endl;
+        return nullptr;  // returning null will tell the engine to stop
+                         // the application.
+    }
 
     return game;
 }
@@ -65,6 +76,12 @@ void Game::InitializeGame(Game* game) {
             std::cout << "QuitHandlerScript::quitTheGame called, will quit the game" << std::endl;
             if (m_game)
                 m_game->Quit();
+        }
+
+        void OnDestroy(EntityManager *entityManager, EntityID self) override {
+            std::cout << "QuitHandlerScript::OnDestroy";
+            std::cout << " entity->" << self.id << " called to be destroyed";
+            std::cout << std::endl;
         }
 
         // OnEvent called everytime SDL report an event

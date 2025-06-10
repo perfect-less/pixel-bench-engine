@@ -14,7 +14,7 @@
 
 class AppState {
 public:
-    Game* game;
+    Game* game{ nullptr };
 };
 
 /* This function runs once at startup. */
@@ -23,12 +23,13 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     *appstate = new AppState;
     AppState& state = *static_cast<AppState*>(*appstate);
 
-    /*SDL_SetAppMetadata(G_game_title, G_game_version, G_game_identifier);*/
-
     Game* game = Game::CreateGame();
-    /*Game* game = new Game(G_game_title, G_window_width, G_window_height);*/
-    state.game = game;
+    if ( !game ) {
+        std::cout << "Game::CreateGame return NULL. Quiting now." << std::endl;
+        return SDL_APP_FAILURE;
+    }
 
+    state.game = game;
     game->InitializeGame(game);
 
     std::cout << "App initialization completed" << std::endl;
@@ -69,9 +70,11 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result)
     std::cout << "SDL_AppQuit called" << std::endl;
     AppState& state = *static_cast<AppState*>(appstate);
 
-    state.game->OnExit();
+    if ( state.game )
+        state.game->OnExit();
 
     std::cout << "deleting game" << std::endl;
-    delete state.game;
+    if ( state.game )
+        delete state.game;
     std::cout << "game deleted" << std::endl;
 }
