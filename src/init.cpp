@@ -101,6 +101,16 @@ void Game::InitializeGame(Game* game) {
                 quitTheGame();
             }
 
+            // Return a `ResultError` to forcefully terminate the game.
+            // this is just an example on how to do it. Normal termination should
+            // be using `game->Quit()`
+            if (event->type == SDL_EVENT_KEY_DOWN && event->key.key == SDLK_E) {
+                return ResultError(
+                        "This is just as simulated error. "
+                        "Messages here will be shown on the error pop up."
+                        );
+            }
+
             return ResultOK;
         }
     };
