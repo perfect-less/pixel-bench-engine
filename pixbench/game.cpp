@@ -152,7 +152,7 @@ void Game::OnEntityDestroyed(EntityID entity_id) {
 }
 
 
-void Game::OnEvent(SDL_Event *event) {
+Result<VoidResult, GameError> Game::OnEvent(SDL_Event *event) {
     std::cout << "Game::OnEvent called" << std::endl;
     // if (event->type == SDL_EVENT_QUIT) {
     //     // return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
@@ -163,73 +163,126 @@ void Game::OnEvent(SDL_Event *event) {
 
     // Let the system handle the event
     for (auto& system : this->ecs_systems) {
-        system->OnEvent(event, this->entityManager);
+        auto res = system->OnEvent(event, this->entityManager);
+        if ( !res.isOk() )
+            return res;
     }
+
+    return ResultOK;
 }
 
-void Game::Itterate() {
+Result<VoidResult, GameError> Game::Itterate() {
     double now_ns = ((double)SDL_GetTicksNS());
     double delta_time_s = (now_ns - this->lastTicksNS) / 1000000000.0;
 
     // std::cout << "Game::Itterate called (" << delta_time_s << ")" << std::endl;
 
+    Result<VoidResult, GameError> res;
+
     // TO DO: Init cascade
     for (auto& system : this->ecs_systems) {
-        system->Initialize(this, this->entityManager);
+        res = system->Initialize(this, this->entityManager);
+        if ( !res.isOk() ) {
+            return res;
+        }
     }
     this->entityManager->resetEntitiesUninitializedStatus();
     
 
     // TO DO: Update cascade
     for (auto& system : this->ecs_systems) {
-        system->Update(delta_time_s, this->entityManager);
+        res = system->Update(delta_time_s, this->entityManager);
+        if ( !res.isOk() ) {
+            return res;
+        }
     }
 
     // TO DO: FixedUpdate cascade, `while update is due`
     for (auto& system : this->ecs_systems) {
-        system->FixedUpdate(delta_time_s, this->entityManager);
+        res = system->FixedUpdate(delta_time_s, this->entityManager);
+        if ( !res.isOk() ) {
+            return res;
+        }
     }
 
     // TO DO: LateUpdate cascade
     now_ns = ((double)SDL_GetTicksNS());
     delta_time_s = (now_ns - this->lastTicksNS) / 1000000000.0;
     for (auto& system : this->ecs_systems) {
-        system->LateUpdate(delta_time_s, this->entityManager);
+        res = system->LateUpdate(delta_time_s, this->entityManager);
+        if ( !res.isOk() ) {
+            return res;
+        }
     }
 
     // TO DO: Handle nodes destruction
 
+    bool is_success;
+
     // Clear screen before render
-    SDL_SetRenderDrawColor(
+    is_success = SDL_SetRenderDrawColor(
             this->renderContext->renderer,
             this->renderContext->renderClearColor.r,
             this->renderContext->renderClearColor.g,
             this->renderContext->renderClearColor.b,
             this->renderContext->renderClearColor.a
             );
-    SDL_RenderClear(this->renderContext->renderer);
+    if ( !is_success ) {
+        std::string err_msg =
+            "Can't set base color to screen. SDL_SetRenderDrawColor failed:\n";
+        err_msg.append(SDL_GetError());
+        return Result<VoidResult, GameError>::Err(
+                GameError(err_msg)
+                );
+    }
+
+    is_success = SDL_RenderClear(this->renderContext->renderer);
+    if ( !is_success ) {
+        std::string err_msg =
+            "Can't draw base color to screen. SDL_RenderClear failed:\n";
+        err_msg.append(SDL_GetError());
+        return Result<VoidResult, GameError>::Err(
+                GameError(err_msg)
+                );
+    }
 
     // TO DO: PreDraw Calls
     for (auto& system : this->ecs_systems) {
-        system->PreDraw(
+        res = system->PreDraw(
                 this->renderContext,
                 this->entityManager
                 );
+        if ( !res.isOk() ) {
+            return res;
+        }
     }
 
     // TO DO: Render ordering based on depth value (Int32)
     // TO DO: Draw Calls (draw from back to front, largest depth value to smallest)
     for (auto& system : this->ecs_systems) {
-        system->Draw(
+        res = system->Draw(
                 this->renderContext,
                 this->entityManager
                 );
+        if ( !res.isOk() ) {
+            return res;
+        }
     }
 
     // Screen Update (flip the screen)
-    SDL_RenderPresent(this->renderContext->renderer);
+    is_success = SDL_RenderPresent(this->renderContext->renderer);
+    if ( !is_success ) {
+        std::string err_message =
+            "Can't update the screen, SDL_RenderPresent failed:\n";
+        err_message.append(SDL_GetError());
+        return Result<VoidResult, GameError>::Err(
+                err_message
+                );
+    }
 
     this->lastTicksNS = now_ns;
+
+    return ResultOK;
 }
 
 

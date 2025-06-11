@@ -40,10 +40,18 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 {
     AppState& state = *static_cast<AppState*>(appstate);
-    // state.game->OnEvent(event);
 
     /* Cascade event */
-    state.game->OnEvent(event);
+    Result<VoidResult, GameError> res = state.game->OnEvent(event);
+    if ( !res.isOk() ) {
+        std::cout
+            << "SDL_AppEvent=>game::OnEvent Failed with the following error:"
+            << std::endl
+            << "\"" << res.getErrResult()->err_message << "\""
+            << std::endl
+            ;
+        return SDL_APP_FAILURE;
+    }
 
     return SDL_APP_CONTINUE;
 }
@@ -57,7 +65,16 @@ SDL_AppResult SDL_AppIterate(void *appstate)
         return SDL_APP_SUCCESS;
     }
 
-    state.game->Itterate();
+    Result<VoidResult, GameError> res = state.game->Itterate();
+    if ( !res.isOk() ) {
+        std::cout
+            << "SDL_AppIterate=>game::Itterate Failed with the following error:"
+            << std::endl
+            << "\"" << res.getErrResult()->err_message << "\""
+            << std::endl
+            ;
+        return SDL_APP_FAILURE;
+    }
 
     return SDL_APP_CONTINUE;
 }

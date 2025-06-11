@@ -234,13 +234,13 @@ public:
         return CTAG_Script;
     };
 
-    virtual void Init(Game* game, EntityManager* entityManager, EntityID self) { };
-    virtual void Update(double deltaTime_s, EntityManager* entityManager, EntityID self) { };
-    virtual void LateUpdate(double deltaTime_s, EntityManager* entityManager, EntityID self) { };
-    virtual void FixedUpdate(double deltaTime_s, EntityManager* entityManager, EntityID self) { };
-    virtual void Draw(RenderContext* renderContext, EntityManager* entity_mgr, EntityID self) { };
-    virtual void OnEvent(SDL_Event* event, EntityManager* entityManager, EntityID self) { };
-    virtual void OnDestroy(EntityManager* entityManager, EntityID self) { };
+    virtual Void Init(Game* game, EntityManager* entityManager, EntityID self) { return ResultOK; };
+    virtual Void Update(double deltaTime_s, EntityManager* entityManager, EntityID self) { return ResultOK; };
+    virtual Void LateUpdate(double deltaTime_s, EntityManager* entityManager, EntityID self) { return ResultOK; };
+    virtual Void FixedUpdate(double deltaTime_s, EntityManager* entityManager, EntityID self) { return ResultOK; };
+    virtual Void Draw(RenderContext* renderContext, EntityManager* entity_mgr, EntityID self) { return ResultOK; };
+    virtual Void OnEvent(SDL_Event* event, EntityManager* entityManager, EntityID self) { return ResultOK; };
+    virtual Void OnDestroy(EntityManager* entityManager, EntityID self) { return ResultOK; };
 };
 
 
@@ -925,18 +925,18 @@ public:
 
 class ISystem {
 public:
-    virtual void Initialize(Game* game, EntityManager* entity_mgr) {};
-    virtual void Awake(EntityManager* entity_mgr) {};
-    virtual void OnComponentRegistered(const ComponentDataPayload* component_info) {};
-    virtual void OnEvent(SDL_Event *event, EntityManager* entity_mgr) {};
-    virtual void Update(double delta_time_s, EntityManager* entity_mgr) {};
-    virtual void FixedUpdate(double delta_time_s, EntityManager* entity_mgr) {};
-    virtual void LateUpdate(double delta_time_s, EntityManager* entity_mgr) {};
-    virtual void PreDraw(RenderContext* renderContext, EntityManager* entity_mgr) {};
-    virtual void Draw(RenderContext* renderContext, EntityManager* entity_mgr) {};
-    virtual void OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id) {};
-    virtual void OnError(EntityManager* entity_mgr) {};
-    virtual void OnExit(EntityManager* entity_mgr) {};
+    virtual Result<VoidResult, GameError> Initialize(Game* game, EntityManager* entity_mgr) { return ResultOK; };
+    virtual Result<VoidResult, GameError> Awake(EntityManager* entity_mgr) { return ResultOK; };
+    virtual Result<VoidResult, GameError> OnComponentRegistered(const ComponentDataPayload* component_info) { return ResultOK; };
+    virtual Result<VoidResult, GameError> OnEvent(SDL_Event *event, EntityManager* entity_mgr) { return ResultOK; };
+    virtual Result<VoidResult, GameError> Update(double delta_time_s, EntityManager* entity_mgr) { return ResultOK; };
+    virtual Result<VoidResult, GameError> FixedUpdate(double delta_time_s, EntityManager* entity_mgr) { return ResultOK; };
+    virtual Result<VoidResult, GameError> LateUpdate(double delta_time_s, EntityManager* entity_mgr) { return ResultOK; };
+    virtual Result<VoidResult, GameError> PreDraw(RenderContext* renderContext, EntityManager* entity_mgr) { return ResultOK; };
+    virtual Result<VoidResult, GameError> Draw(RenderContext* renderContext, EntityManager* entity_mgr) { return ResultOK; };
+    virtual Result<VoidResult, GameError> OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id) { return ResultOK; };
+    virtual Result<VoidResult, GameError> OnError(EntityManager* entity_mgr) { return ResultOK; };
+    virtual Result<VoidResult, GameError> OnExit(EntityManager* entity_mgr) { return ResultOK; };
 };
 
 
@@ -945,12 +945,11 @@ private:
     std::vector<RenderableComponent*> ordered_renderables;
     std::bitset<MAX_COMPONENTS> m_renderable_components_mask;
 public:
-    void Initialize(Game* game, EntityManager* entity_mgr) override;
-    void OnComponentRegistered(const ComponentDataPayload* component_info) override;
-    // void Update(double delta_time_s, EntityManager* entity_mgr) override; // Animation update
-    void LateUpdate(double delta_time_s, EntityManager* entity_mgr) override; // Animation update
-    void PreDraw(RenderContext* renderContext, EntityManager* entity_mgr) override;
-    void Draw(RenderContext* renderContext, EntityManager* entity_mgr) override;
+    Result<VoidResult, GameError> Initialize(Game* game, EntityManager* entity_mgr) override;
+    Result<VoidResult, GameError> OnComponentRegistered(const ComponentDataPayload* component_info) override;
+    Result<VoidResult, GameError> LateUpdate(double delta_time_s, EntityManager* entity_mgr) override; // Animation update
+    Result<VoidResult, GameError> PreDraw(RenderContext* renderContext, EntityManager* entity_mgr) override;
+    Result<VoidResult, GameError> Draw(RenderContext* renderContext, EntityManager* entity_mgr) override;
 };
 
 
@@ -961,18 +960,12 @@ private:
 public:
     ScriptSystem();
 
-    void Initialize(Game* game, EntityManager* entity_mgr);
-    /*void Awake(EntityManager* entity_mgr);*/
-    void OnComponentRegistered(const ComponentDataPayload* component_info);
-    void OnEvent(SDL_Event *event, EntityManager* entity_mgr);
-    void Update(double delta_time_s, EntityManager* entity_mgr);
-    /*void FixedUpdate(double delta_time_s, EntityManager* entity_mgr);*/
-    void LateUpdate(double delta_time_s, EntityManager* entity_mgr);
-    // void PreDraw(RenderContext* renderContext, EntityManager* entity_mgr);
-    // void Draw(RenderContext* renderContext, EntityManager* entity_mgr);
-    void OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id);
-    /*void OnError(EntityManager* entity_mgr);*/
-    /*void OnExit(EntityManager* entity_mgr);*/
+    Result<VoidResult, GameError> Initialize(Game* game, EntityManager* entity_mgr);
+    Result<VoidResult, GameError> OnComponentRegistered(const ComponentDataPayload* component_info);
+    Result<VoidResult, GameError> OnEvent(SDL_Event *event, EntityManager* entity_mgr);
+    Result<VoidResult, GameError> Update(double delta_time_s, EntityManager* entity_mgr);
+    Result<VoidResult, GameError> LateUpdate(double delta_time_s, EntityManager* entity_mgr);
+    Result<VoidResult, GameError> OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id);
 };
 
 

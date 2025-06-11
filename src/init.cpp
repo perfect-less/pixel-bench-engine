@@ -65,27 +65,33 @@ void Game::InitializeGame(Game* game) {
     class QuitHandlerScript : public ScriptComponent {
     public:
         Game* m_game = nullptr; // object reference to pointer
-        
+
         // Init function called when entity begin its life
-        void Init(Game *game, EntityManager *entityManager, EntityID self) override {
+        Void Init(Game *game, EntityManager *entityManager, EntityID self) override {
             m_game = game;
+
+            return ResultOK;
         }
 
         // You can add your own function
-        void quitTheGame() {
+        Void quitTheGame() {
             std::cout << "QuitHandlerScript::quitTheGame called, will quit the game" << std::endl;
             if (m_game)
                 m_game->Quit();
+
+            return ResultOK;
         }
 
-        void OnDestroy(EntityManager *entityManager, EntityID self) override {
+        Void OnDestroy(EntityManager *entityManager, EntityID self) override {
             std::cout << "QuitHandlerScript::OnDestroy";
             std::cout << " entity->" << self.id << " called to be destroyed";
             std::cout << std::endl;
+
+            return ResultOK;
         }
 
         // OnEvent called everytime SDL report an event
-        void OnEvent(SDL_Event *event, EntityManager *entityManager, EntityID self) override {
+        Void OnEvent(SDL_Event *event, EntityManager *entityManager, EntityID self) override {
             // Handle quit
             if (event->type == SDL_EVENT_QUIT) {
                 quitTheGame();
@@ -94,6 +100,8 @@ void Game::InitializeGame(Game* game) {
             if (event->type == SDL_EVENT_KEY_DOWN && event->key.key == SDLK_Q) {
                 quitTheGame();
             }
+
+            return ResultOK;
         }
     };
     

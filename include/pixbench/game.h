@@ -54,6 +54,24 @@ public:
 };
 
 
+/*
+ * Default Void Result return value used by the game engine.
+ */
+#define Void Result<VoidResult, GameError>
+
+/*
+ * Default Ok value for typical Result<VoidResult, GameError> result type used
+ * by the game engine.
+ */
+#define ResultOK Result<VoidResult, GameError>::Ok(VoidResult::empty)
+
+/*
+ * Default Error value for typical Result<VoidResult, GameError> result type
+ * used by the game engine.
+ */
+#define ResultError(err_message) Result<VoidResult, GameError>::Err(GameError(err_message))
+
+
 /**
  * Game object contains all contexts and manages everything related to the
  * running of the game. Game object also the one that pass SDL event and
@@ -189,7 +207,7 @@ public:
      * This function will call Init, Update, LateUpdate, FixedUpdate, PreDraw,
      * and Draw to all registered systems that implement it.
      */
-    void Itterate();
+    Result<VoidResult, GameError> Itterate();
 
     /**
      * Callback called when a new Component type is registered to ComponentManager
@@ -207,7 +225,7 @@ public:
     /**
      * Called by SDL_AppEvent callback to pass down event to all registered systems.
      */
-    void OnEvent(SDL_Event *event);
+    Result<VoidResult, GameError> OnEvent(SDL_Event *event);
 
     /**
      * Quit the game
