@@ -30,14 +30,23 @@ void Game::ApplyGameConfig (GameConfig newConfig) {
     this->gameConfig = newConfig;
 }
 
-void Game::Initialize() {
-    PrepareUtils();
+Result<VoidResult, GameError> Game::Initialize() {
+    auto res = PrepareUtils();
+    if ( !res.isOk() )
+        return res;
 
-    SDL_SetAppMetadata(
+    bool is_success = SDL_SetAppMetadata(
             this->gameConfig.game_title.c_str(),
             this->gameConfig.game_version.c_str(),
             this->gameConfig.game_identifier.c_str()
             );
+    if ( !is_success )
+        return Result<VoidResult, GameError>::Err(
+                GameError(
+                    "Can't set app metadata with SDL_SetAppMetadata. "
+                    "Perhaps there's a problem with the SDL installation"
+                    )
+                );
 
     // Initialize SDL
     SDL_InitFlags init_flag = SDL_INIT_VIDEO;
@@ -45,12 +54,17 @@ void Game::Initialize() {
         init_flag |= SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD;
     if (!SDL_Init(init_flag)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Can't initialized SDL: %s`", SDL_GetError());
+        return Result<VoidResult, GameError>::Err(
+                GameError("Can't initialize SDL")
+                );
     }
 
-    PrepareRenderer(
+    res = PrepareRenderer(
             this->gameConfig.window_width,
             this->gameConfig.window_height
             );
+    if ( !res.isOk() )
+        return res;
 
     this->entityManager = new EntityManager();
     this->entityManager->setComponentRegisterCallback(
@@ -63,29 +77,46 @@ void Game::Initialize() {
             this->OnComponentRegistered(payload);
             }
             );
+    this->entityManager->setOnEntityDestroyedCallback(
+            [this] (EntityID entity_id)
+            {
+            this->OnEntityDestroyed(entity_id);
+            }
+            );
 
     this->scriptSystem = std::make_shared<ScriptSystem>();
     this->ecs_systems.push_back(std::make_shared<RenderingSystem>());
     this->ecs_systems.push_back(scriptSystem);
 
     this->isRunning = true;
+
+    return Result<VoidResult, GameError>::Ok(VoidResult::empty);
 }
 
-void Game:: PrepareUtils() {
+Result<VoidResult, GameError> Game:: PrepareUtils() {
     // Prepare for random number generator
-    PrepareRandomGenerator();
+    // PrepareRandomGenerator();
 
     // Base path of the executable
-    this->basePath = SDL_GetBasePath();
+    const char* base_path_cstr = SDL_GetBasePath();
+    if ( !base_path_cstr )
+        return Result<VoidResult, GameError>::Err(
+                GameError("Can't obtain executable base path using SDL_GetBasePath")
+                );
+
+    this->basePath = base_path_cstr;
+
+    return Result<VoidResult, GameError>::Ok(VoidResult::empty);
 }
 
 
-void Game::PrepareRenderer(int windowWidth, int windowHeight) {
+Result<VoidResult, GameError> Game::PrepareRenderer(int windowWidth, int windowHeight) {
 
     if (renderContext) {
-
-        std::cout << "renderContext already initialized" << std::endl;
         /* Should fail as renderContext has been initialized */
+        return Result<VoidResult, GameError>::Err(
+                GameError("PrepareRenderer() failed, renderContext already initialized")
+                );
     }
     this->renderContext = new RenderContext(
             this->gameConfig.game_title.c_str(),
@@ -96,9 +127,14 @@ void Game::PrepareRenderer(int windowWidth, int windowHeight) {
 
     if (this->gameConfig.render_vsync_enabled) {
         if (!SDL_SetRenderVSync(this->renderContext->renderer, 1)) {
-            SDL_Log("Couln't enable VSync.");
+            SDL_Log("Couldn't enable VSync.");
+            Result<VoidResult, GameError>::Err(
+                    GameError("Couldn't enable VSync with SDL.")
+                    );
         }
     }
+
+    return Result<VoidResult, GameError>::Ok(VoidResult::empty);
 }
 
 
@@ -109,7 +145,14 @@ void Game::OnComponentRegistered(ComponentDataPayload component_payload) {
 }
 
 
-void Game::OnEvent(SDL_Event *event) {
+void Game::OnEntityDestroyed(EntityID entity_id) {
+    for (auto& system : this->ecs_systems) {
+        system->OnEntityDestroyed(this->entityManager, entity_id);
+    }
+}
+
+
+Result<VoidResult, GameError> Game::OnEvent(SDL_Event *event) {
     std::cout << "Game::OnEvent called" << std::endl;
     // if (event->type == SDL_EVENT_QUIT) {
     //     // return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
@@ -120,77 +163,151 @@ void Game::OnEvent(SDL_Event *event) {
 
     // Let the system handle the event
     for (auto& system : this->ecs_systems) {
-        system->OnEvent(event, this->entityManager);
+        auto res = system->OnEvent(event, this->entityManager);
+        if ( !res.isOk() )
+            return res;
     }
+
+    return ResultOK;
 }
 
-void Game::Itterate() {
+Result<VoidResult, GameError> Game::Itterate() {
     double now_ns = ((double)SDL_GetTicksNS());
     double delta_time_s = (now_ns - this->lastTicksNS) / 1000000000.0;
 
     // std::cout << "Game::Itterate called (" << delta_time_s << ")" << std::endl;
 
+    Result<VoidResult, GameError> res;
+
     // TO DO: Init cascade
     for (auto& system : this->ecs_systems) {
-        system->Initialize(this, this->entityManager);
+        res = system->Initialize(this, this->entityManager);
+        if ( !res.isOk() ) {
+            return res;
+        }
     }
     this->entityManager->resetEntitiesUninitializedStatus();
     
 
     // TO DO: Update cascade
     for (auto& system : this->ecs_systems) {
-        system->Update(delta_time_s, this->entityManager);
+        res = system->Update(delta_time_s, this->entityManager);
+        if ( !res.isOk() ) {
+            return res;
+        }
     }
 
     // TO DO: FixedUpdate cascade, `while update is due`
     for (auto& system : this->ecs_systems) {
-        system->FixedUpdate(delta_time_s, this->entityManager);
+        res = system->FixedUpdate(delta_time_s, this->entityManager);
+        if ( !res.isOk() ) {
+            return res;
+        }
     }
 
     // TO DO: LateUpdate cascade
     now_ns = ((double)SDL_GetTicksNS());
     delta_time_s = (now_ns - this->lastTicksNS) / 1000000000.0;
     for (auto& system : this->ecs_systems) {
-        system->LateUpdate(delta_time_s, this->entityManager);
+        res = system->LateUpdate(delta_time_s, this->entityManager);
+        if ( !res.isOk() ) {
+            return res;
+        }
     }
 
     // TO DO: Handle nodes destruction
 
+    bool is_success;
+
     // Clear screen before render
-    SDL_SetRenderDrawColor(
+    is_success = SDL_SetRenderDrawColor(
             this->renderContext->renderer,
             this->renderContext->renderClearColor.r,
             this->renderContext->renderClearColor.g,
             this->renderContext->renderClearColor.b,
             this->renderContext->renderClearColor.a
             );
-    SDL_RenderClear(this->renderContext->renderer);
+    if ( !is_success ) {
+        std::string err_msg =
+            "Can't set base color to screen. SDL_SetRenderDrawColor failed:\n";
+        err_msg.append(SDL_GetError());
+        return Result<VoidResult, GameError>::Err(
+                GameError(err_msg)
+                );
+    }
+
+    is_success = SDL_RenderClear(this->renderContext->renderer);
+    if ( !is_success ) {
+        std::string err_msg =
+            "Can't draw base color to screen. SDL_RenderClear failed:\n";
+        err_msg.append(SDL_GetError());
+        return Result<VoidResult, GameError>::Err(
+                GameError(err_msg)
+                );
+    }
 
     // TO DO: PreDraw Calls
     for (auto& system : this->ecs_systems) {
-        system->PreDraw(
+        res = system->PreDraw(
                 this->renderContext,
                 this->entityManager
                 );
+        if ( !res.isOk() ) {
+            return res;
+        }
     }
 
     // TO DO: Render ordering based on depth value (Int32)
     // TO DO: Draw Calls (draw from back to front, largest depth value to smallest)
     for (auto& system : this->ecs_systems) {
-        system->Draw(
+        res = system->Draw(
                 this->renderContext,
                 this->entityManager
                 );
+        if ( !res.isOk() ) {
+            return res;
+        }
     }
 
     // Screen Update (flip the screen)
-    SDL_RenderPresent(this->renderContext->renderer);
+    is_success = SDL_RenderPresent(this->renderContext->renderer);
+    if ( !is_success ) {
+        std::string err_message =
+            "Can't update the screen, SDL_RenderPresent failed:\n";
+        err_message.append(SDL_GetError());
+        return Result<VoidResult, GameError>::Err(
+                err_message
+                );
+    }
 
     this->lastTicksNS = now_ns;
+
+    return ResultOK;
 }
 
 
 void Game::Quit () {
     SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Game::Quit Called");
     this->isRunning = false;
+}
+
+
+void Game::OnExit() {
+    // destroy all entities (along it's components)
+    this->entityManager->destroyAllEntities();
+
+    // destroy all systems
+    for (auto& system : this->ecs_systems) {
+        system->OnExit(this->entityManager);
+    }
+    
+    // SDL_window and SDL_renderere will be handled by renderContext
+}
+
+
+void Game::OnError() {
+    // TODO: log error
+    SDL_LogError(SDL_LOG_CATEGORY_ERROR, "An Error has occured"); // TEMPORARY
+    // exit the game
+    this->OnExit();
 }

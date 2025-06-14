@@ -29,6 +29,13 @@ void EntityManager::setComponentRegisterCallback(
 }
 
 
+void EntityManager::setOnEntityDestroyedCallback(
+        std::function<void(EntityID entity_id)> callback_func
+        ) {
+    m_on_entity_destroyed_callback = callback_func;
+}
+
+
 EntityID EntityManager::createEntity() {
     EntityID new_id;
     EntityIDNumber new_id_index;

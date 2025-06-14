@@ -4,6 +4,7 @@
 
 #include "pixbench/gameconfig.h"
 #include "pixbench/renderer.h"
+#include "pixbench/utils.h"
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_render.h>
 #include <memory>
@@ -12,9 +13,63 @@
 
 
 struct ComponentDataPayload;
+struct EntityID;
 class EntityManager;
 class ISystem;
 class ScriptSystem;
+
+
+/*
+ * Default error type to return using Result<T, E> by Game class
+ * methods.
+ * example usage:
+ * ~~~~~~~~~~~~~~~~~~~~~~~~{.cpp}
+ * return Result<VoidResult, GameError>::Err(GameError("Error message here."))
+ * ~~~~~~~~~~~~~~~~~~~~~~~~
+ */
+class GameError {
+public:
+    std::string err_message;
+
+    GameError() = default;
+
+    GameError(
+            std::string err_message
+            )
+        :
+            err_message(err_message)
+    { }
+};
+
+/*
+ * Place holder to denote `void` type of return when using `Result<T, E>`
+ * example usage:
+ * ~~~~~~~~~~~~~~~~~~~~~~~~{.cpp}
+ * return Result<VoidResult, GameError>::Ok(VoidResult::empty)
+ * ~~~~~~~~~~~~~~~~~~~~~~~~
+ */
+class VoidResult {
+public:
+    static VoidResult empty;
+};
+
+
+/*
+ * Default Void Result return value used by the game engine.
+ */
+#define Void Result<VoidResult, GameError>
+
+/*
+ * Default Ok value for typical Result<VoidResult, GameError> result type used
+ * by the game engine.
+ */
+#define ResultOK Result<VoidResult, GameError>::Ok(VoidResult::empty)
+
+/*
+ * Default Error value for typical Result<VoidResult, GameError> result type
+ * used by the game engine.
+ */
+#define ResultError(err_message) Result<VoidResult, GameError>::Err(GameError(err_message))
 
 
 /**
@@ -64,6 +119,13 @@ public:
      *     game->ApplyGameConfig(gConfig);
      * 
      *     game->Initialize();
+     *     auto res = game->Initialize();
+     *     if ( res.isError() ) {
+     *         std::cout << "Can't Initialize Game: "
+     *             << res.getErrResult()->err_message
+     *             << std::endl;
+     *         return nullptr;
+     *     }
      * 
      *     return game;
      * }
@@ -124,12 +186,12 @@ public:
      * Initialized required utilities used by Game object 
      * (e.g. random number generator, geting base path, etc.)
      */
-    void PrepareUtils();
+    Result<VoidResult, GameError> PrepareUtils();
 
     /**
      * Create renderContext and apply configs (e.g vsync)
      */
-    void PrepareRenderer(int windowWidth, int windowHeight);
+    Result<VoidResult, GameError> PrepareRenderer(int windowWidth, int windowHeight);
 
     /**
      * Initialize a Game
@@ -138,24 +200,32 @@ public:
      * **Note**: *don't forget to call this function in Game::CreateGame() that you've 
      * defined.*
      */
-    void Initialize();
+    Result<VoidResult, GameError> Initialize();
 
     /**
      * Called by SDL_AppIterate callback
      * This function will call Init, Update, LateUpdate, FixedUpdate, PreDraw,
      * and Draw to all registered systems that implement it.
      */
-    void Itterate();
+    Result<VoidResult, GameError> Itterate();
 
     /**
      * Callback called when a new Component type is registered to ComponentManager
+     *
+     * Read more on: `EntityManager::setOnEntityDestroyedCallback`
      */
     void OnComponentRegistered(ComponentDataPayload component_payload);
 
     /**
+     * Callback called when an entity will be destroyed.
+     *
+     */
+    void OnEntityDestroyed(EntityID entity_id);
+
+    /**
      * Called by SDL_AppEvent callback to pass down event to all registered systems.
      */
-    void OnEvent(SDL_Event *event);
+    Result<VoidResult, GameError> OnEvent(SDL_Event *event);
 
     /**
      * Quit the game

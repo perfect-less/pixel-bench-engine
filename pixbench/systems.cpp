@@ -1,10 +1,12 @@
 #include "pixbench/ecs.h"
+#include "pixbench/game.h"
 #include "pixbench/renderer.h"
 #include "pixbench/vector2.h"
 #include <SDL3/SDL_render.h>
 #include <algorithm>
 #include <bitset>
 #include <cmath>
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -14,7 +16,7 @@ ScriptSystem::ScriptSystem() {
 }
 
 
-void ScriptSystem::OnComponentRegistered(const ComponentDataPayload* component_info) {
+Result<VoidResult, GameError> ScriptSystem::OnComponentRegistered(const ComponentDataPayload* component_info) {
     ComponentTag ctag = component_info->ctag;
     // ComponentType ctype = component_info->ctype;
     size_t cindex = component_info->cindex;
@@ -22,10 +24,31 @@ void ScriptSystem::OnComponentRegistered(const ComponentDataPayload* component_i
     if (ctag == CTAG_Script) {
         this->m_script_components_mask.set(cindex);
     }
+
+    return ResultOK;
 }
 
 
-void ScriptSystem::OnEvent (SDL_Event *event, EntityManager* entity_mgr) {
+Result<VoidResult, GameError> ScriptSystem::OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id) {
+    for (size_t cindex=0; cindex<MAX_COMPONENTS; ++cindex) {
+        if (!(this->m_script_components_mask[cindex]))
+            continue; // skip non-script components
+
+        ScriptComponent* script_comp = entity_mgr->getEntityComponentCasted<ScriptComponent>(
+                entity_id, cindex);
+
+        if ( !script_comp )
+            continue;
+
+        auto res = script_comp->OnDestroy(entity_mgr, entity_id);
+        if ( !res.isOk() )
+            return res;
+    }
+    return ResultOK;
+}
+
+
+Result<VoidResult, GameError> ScriptSystem::OnEvent (SDL_Event *event, EntityManager* entity_mgr) {
     // std::cout << "ScriptSystem::OnEvent" << std::endl;
     for (size_t cindex=0; cindex<MAX_COMPONENTS; ++cindex) {
         if (!(this->m_script_components_mask[cindex]))
@@ -39,14 +62,19 @@ void ScriptSystem::OnEvent (SDL_Event *event, EntityManager* entity_mgr) {
         for (auto ent_id : EntityView(entity_mgr, mask, true)) {
             auto script = entity_mgr->getEntityComponentCasted<ScriptComponent>(
                     ent_id, cindex);
-            script->OnEvent(event, entity_mgr, ent_id);
+            auto res = script->OnEvent(event, entity_mgr, ent_id);
+            if ( !res.isOk() ) {
+                return res;
+            }
         }
     }
+
+    return ResultOK;
 }
 
-/*void PreDraw(RenderContext* renderContext, EntityManager* entity_mgr);*/
-/*void Draw(RenderContext* renderContext, EntityManager* entity_mgr);*/
-void ScriptSystem::Initialize(Game* game, EntityManager* entity_mgr) {
+/*Result<VoidResult, GameError> PreDraw(RenderContext* renderContext, EntityManager* entity_mgr);*/
+/*Result<VoidResult, GameError> Draw(RenderContext* renderContext, EntityManager* entity_mgr);*/
+Result<VoidResult, GameError> ScriptSystem::Initialize(Game* game, EntityManager* entity_mgr) {
     auto uninitialized_entities = entity_mgr->getUninitializedEntities();
     for (auto& ent_id : uninitialized_entities) {
 
@@ -60,12 +88,16 @@ void ScriptSystem::Initialize(Game* game, EntityManager* entity_mgr) {
 
             auto script = entity_mgr->getEntityComponentCasted<ScriptComponent>(
                     ent_id, cindex);
-            script->Init(game, entity_mgr, ent_id);
+            auto res = script->Init(game, entity_mgr, ent_id);
+            if ( !res.isOk() )
+                return res;
         }
     }
+
+    return ResultOK;
 };
 
-void ScriptSystem::Update(double delta_time_s, EntityManager* entity_mgr) {
+Result<VoidResult, GameError> ScriptSystem::Update(double delta_time_s, EntityManager* entity_mgr) {
     for (size_t cindex=0; cindex<MAX_COMPONENTS; ++cindex) {
         if (!(this->m_script_components_mask[cindex]))
             continue; // skip non-script components
@@ -77,13 +109,17 @@ void ScriptSystem::Update(double delta_time_s, EntityManager* entity_mgr) {
             auto script = entity_mgr->getEntityComponentCasted<ScriptComponent>(
                     ent_id, cindex);
             // std::cout << "ScriptSystem::Update => script->Update(id=" << ent_id.id << ")" << std::endl;
-            script->Update(delta_time_s, entity_mgr, ent_id);
+            auto res = script->Update(delta_time_s, entity_mgr, ent_id);
+            if ( !res.isOk() )
+                return res;
         }
     }
+
+    return ResultOK;
 };
 
 
-void ScriptSystem::LateUpdate(double delta_time_s, EntityManager* entity_mgr) {
+Result<VoidResult, GameError> ScriptSystem::LateUpdate(double delta_time_s, EntityManager* entity_mgr) {
     for (size_t cindex=0; cindex<MAX_COMPONENTS; ++cindex) {
         if (!(this->m_script_components_mask[cindex]))
             continue; // skip non-script components
@@ -94,25 +130,31 @@ void ScriptSystem::LateUpdate(double delta_time_s, EntityManager* entity_mgr) {
         for (auto ent_id : EntityView(entity_mgr, mask, false)) {
             auto script = entity_mgr->getEntityComponentCasted<ScriptComponent>(
                     ent_id, cindex);
-            script->LateUpdate(delta_time_s, entity_mgr, ent_id);
+            auto res = script->LateUpdate(delta_time_s, entity_mgr, ent_id);
+            if ( !res.isOk() )
+                return res;
         }
     }
+
+    return ResultOK;
 };
 
 
 // ===================== Rendering System =====================
 
-void RenderingSystem::OnComponentRegistered(const ComponentDataPayload* component_info) {
+Result<VoidResult, GameError> RenderingSystem::OnComponentRegistered(const ComponentDataPayload* component_info) {
     ComponentTag ctag = component_info->ctag;
     size_t cindex = component_info->cindex;
 
     if (ctag == CTAG_Renderable) {
         this->m_renderable_components_mask.set(cindex);
     }
+
+    return ResultOK;
 }
 
 
-void RenderingSystem::Initialize(Game* game, EntityManager* entity_mgr) {
+Result<VoidResult, GameError> RenderingSystem::Initialize(Game* game, EntityManager* entity_mgr) {
     std::cout << "RenderingSystem::Initialize" << std::endl;
     auto uninitialized_entities = entity_mgr->getUninitializedEntities();
     for (auto& ent_id : uninitialized_entities) {
@@ -132,10 +174,12 @@ void RenderingSystem::Initialize(Game* game, EntityManager* entity_mgr) {
         }
     }
     std::cout << "RenderingSystem::Initialize::END" << std::endl;
+
+    return ResultOK;
 }
 
 
-void RenderingSystem::LateUpdate(double delta_time_s, EntityManager* entity_mgr) {
+Result<VoidResult, GameError> RenderingSystem::LateUpdate(double delta_time_s, EntityManager* entity_mgr) {
     // Performing animation update (moving the srect)
     std::cout << "RenderingSystem::LateUpdate" << std::endl;
 
@@ -214,10 +258,12 @@ void RenderingSystem::LateUpdate(double delta_time_s, EntityManager* entity_mgr)
     }
 
     std::cout << "RenderingSystem::Update::END" << std::endl;
+
+    return ResultOK;
 };
 
 
-void RenderingSystem::PreDraw(RenderContext* renderContext, EntityManager* entity_mgr) {
+Result<VoidResult, GameError> RenderingSystem::PreDraw(RenderContext* renderContext, EntityManager* entity_mgr) {
     std::cout << "RenderingSystem::PreDraw" << std::endl;
     ordered_renderables.clear();
     for (EntityID ent_id : EntityView(entity_mgr, m_renderable_components_mask, false)) {
@@ -333,10 +379,12 @@ void RenderingSystem::PreDraw(RenderContext* renderContext, EntityManager* entit
             }
             );
     std::cout << "RenderingSystem::PreDraw::END" << std::endl;
+
+    return ResultOK;
 }
 
 
-void RenderingSystem::Draw(RenderContext* renderContext, EntityManager* entity_mgr) {
+Result<VoidResult, GameError> RenderingSystem::Draw(RenderContext* renderContext, EntityManager* entity_mgr) {
     std::cout << "RenderingSystem::Draw" << std::endl;
 
     for (RenderableComponent* renderable : ordered_renderables) {
@@ -440,4 +488,6 @@ void RenderingSystem::Draw(RenderContext* renderContext, EntityManager* entity_m
         }
     }
     std::cout << "RenderingSystem::Draw::END" << std::endl;
+
+    return ResultOK;
 }
