@@ -12,16 +12,19 @@
 #include <unordered_map>
 #include <vector>
 
+
 class RenderContext {
 public:
-    SDL_Renderer* renderer;
-    SDL_Window* window;
-    Vector2 camera_position;
-    Vector2 camera_size;
-    Color renderClearColor;
+    SDL_Renderer* renderer;     //!< SDL_Renderer
+    SDL_Window* window;         //!< SDL_Window
+    Vector2 camera_position;    //!< camera coordinate position in scene space
+    Vector2 camera_size;        //!< camera size in scene space
+    Vector2 screen_size;        //!< screen size in pixels
+    Color renderClearColor;     //!< Color of clear window
 
     RenderContext(
             std::string game_title,
+            Vector2 screen_size,
             Vector2 camera_position, Vector2 camera_size,
             Color render_clear_color
             )
@@ -29,8 +32,8 @@ public:
     {
         if (!SDL_CreateWindowAndRenderer(
                     game_title.c_str(),
-                    (int)camera_size.x,
-                    (int)camera_size.y,
+                    (int)screen_size.x,
+                    (int)screen_size.y,
                     SDL_WINDOW_RESIZABLE,
                     /*&new_window, &new_renderer*/
                     &(this->window), &(this->renderer)
@@ -39,6 +42,7 @@ public:
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Can't initialized SDL: %s", SDL_GetError());
             /*return 3;*/
         }
+        this->SetScreenSize(screen_size);
         this->SetCameraContext(camera_position, camera_size);
     }
 
@@ -47,12 +51,40 @@ public:
         SDL_DestroyWindow(this->window);
     }
 
+    void SetScreenSize(Vector2 screen_size) {
+        this->screen_size = screen_size;
+    }
+
     void SetCameraContext(Vector2 camera_position, Vector2 camera_size) {
         std::cout << "SetCameraContext called." << std::endl;
         this->camera_position = camera_position;
         this->camera_size = camera_size;
     }
 };
+
+
+SDL_FRect sceneToCamSpace(
+        RenderContext* renderContext,
+        SDL_FRect rect
+        );
+
+
+Vector2 sceneToCamSpace(
+        RenderContext* renderContext,
+        Vector2 point
+        );
+
+
+SDL_FRect camToScreenSpace(
+        RenderContext* renderContext,
+        SDL_FRect rect
+        );
+
+
+Vector2 camToScreenSpace(
+        RenderContext* renderContext,
+        Vector2 point
+        );
 
 
 /* Sprite Sheet */
