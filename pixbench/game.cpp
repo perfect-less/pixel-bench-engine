@@ -120,6 +120,7 @@ Result<VoidResult, GameError> Game::PrepareRenderer(int windowWidth, int windowH
     }
     this->renderContext = new RenderContext(
             this->gameConfig.game_title.c_str(),
+            Vector2(windowWidth, windowHeight),
             Vector2(0.0, 0.0),
             Vector2(windowWidth, windowHeight),
             this->gameConfig.render_clear_color

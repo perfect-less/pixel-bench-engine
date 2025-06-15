@@ -290,23 +290,25 @@ Result<VoidResult, GameError> RenderingSystem::PreDraw(RenderContext* renderCont
             if (renderable->getRenderableTag() == RCTAG_Sprite) {
                 // check if sprite rect inside the screen
                 Sprite* sprite = static_cast<Sprite*>(renderable);
-                sprite->drect.x = (
-                        sprite->offset.x + sprite->transform->GlobalPosition().x
-                        - renderContext->camera_position.x
-                        );
-                sprite->drect.y = (
+                const Vector2 sprite_position__scn = Vector2(
+                        sprite->offset.x + sprite->transform->GlobalPosition().x,
                         sprite->offset.y + sprite->transform->GlobalPosition().y
-                        - renderContext->camera_position.y
                         );
+                const Vector2 sprite_position__cam = sceneToCamSpace(
+                        renderContext,
+                        sprite_position__scn
+                        );
+                sprite->drect.x = sprite_position__cam.x;
+                sprite->drect.y = sprite_position__cam.y;
 
-                SDL_FRect r = sprite->drect;
-                float screen_w = renderContext->camera_size.x;
-                float screen_h = renderContext->camera_size.y;
+                const SDL_FRect r = sprite->drect;
+                const float cam_w = renderContext->camera_size.x;
+                const float cam_h = renderContext->camera_size.y;
                 if (
                         !(
-                            std::max(r.x+r.w, screen_w) - std::min(r.x, 0.0f) < (screen_w+r.w)
+                            std::max(r.x+r.w, cam_w) - std::min(r.x, 0.0f) < (cam_w+r.w)
                             &&
-                            std::max(r.y+r.h, screen_h) - std::min(r.y, 0.0f) < (screen_h+r.h)
+                            std::max(r.y+r.h, cam_h) - std::min(r.y, 0.0f) < (cam_h+r.h)
                          )
                    ) { // skip if not visible
                     continue;
@@ -318,21 +320,22 @@ Result<VoidResult, GameError> RenderingSystem::PreDraw(RenderContext* renderCont
                     continue;
 
                 if (auto tile_map = tile->getTileMap().lock()) {
-                    Vector2 tile_pos = tile->transform->GlobalPosition();
-                    tile->drect.x = tile_pos.x - renderContext->camera_position.x;
-                    tile->drect.y = tile_pos.y - renderContext->camera_position.y;
+                    const Vector2 tile_pos = tile->transform->GlobalPosition();
+                    const Vector2 tile_pos__cam = sceneToCamSpace(renderContext, tile_pos);
+                    tile->drect.x = tile_pos__cam.x;
+                    tile->drect.y = tile_pos__cam.y;
                     tile->drect.w = tile_map->width;
                     tile->drect.h = tile_map->height;
-                    SDL_FRect r = tile->drect;
+                    const SDL_FRect r = tile->drect;
 
-                    float screen_w = renderContext->camera_size.x;
-                    float screen_h = renderContext->camera_size.y;
+                    const float cam_w = renderContext->camera_size.x;
+                    const float cam_h = renderContext->camera_size.y;
 
                     if (
                             !(
-                                std::max(r.x+r.w, screen_w) - std::min(r.x, 0.0f) < (screen_w+r.w)
+                                std::max(r.x+r.w, cam_w) - std::min(r.x, 0.0f) < (cam_w+r.w)
                                 &&
-                                std::max(r.y+r.h, screen_h) - std::min(r.y, 0.0f) < (screen_h+r.h)
+                                std::max(r.y+r.h, cam_h) - std::min(r.y, 0.0f) < (cam_h+r.h)
                              )
                        ) { // skip if not visible
                         continue;
@@ -343,23 +346,25 @@ Result<VoidResult, GameError> RenderingSystem::PreDraw(RenderContext* renderCont
             else if (renderable->getRenderableTag() == RCTAG_Script) {
                 // TODO: check if drawable script rect inside the screen
                 CustomRenderable* custom_renderable = static_cast<CustomRenderable*>(renderable);
-                custom_renderable->drect.x = (
-                        custom_renderable->offset.x + custom_renderable->transform->GlobalPosition().x
-                        - renderContext->camera_position.x
-                        );
-                custom_renderable->drect.y = (
+                const Vector2 render_position__scn = Vector2(
+                        custom_renderable->offset.x + custom_renderable->transform->GlobalPosition().x,
                         custom_renderable->offset.y + custom_renderable->transform->GlobalPosition().y
-                        - renderContext->camera_position.y
                         );
+                const Vector2 render_position__cam = sceneToCamSpace(
+                        renderContext,
+                        render_position__scn
+                        );
+                custom_renderable->drect.x = render_position__cam.x;
+                custom_renderable->drect.y = render_position__cam.y;
 
-                SDL_FRect r = custom_renderable->drect;
-                float screen_w = renderContext->camera_size.x;
-                float screen_h = renderContext->camera_size.y;
+                const SDL_FRect r = custom_renderable->drect;
+                const float cam_w = renderContext->camera_size.x;
+                const float cam_h = renderContext->camera_size.y;
                 if (
                         !(
-                            std::max(r.x+r.w, screen_w) - std::min(r.x, 0.0f) < (screen_w+r.w)
+                            std::max(r.x+r.w, cam_w) - std::min(r.x, 0.0f) < (cam_w+r.w)
                             &&
-                            std::max(r.y+r.h, screen_h) - std::min(r.y, 0.0f) < (screen_h+r.h)
+                            std::max(r.y+r.h, cam_h) - std::min(r.y, 0.0f) < (cam_h+r.h)
                          )
                    ) { // skip if not visible
                     continue;
@@ -390,10 +395,11 @@ Result<VoidResult, GameError> RenderingSystem::Draw(RenderContext* renderContext
     for (RenderableComponent* renderable : ordered_renderables) {
         if (renderable->getRenderableTag() == RCTAG_Sprite) {
             Sprite* sprite = static_cast<Sprite*>(renderable);
+            const SDL_FRect sprite_drect__scr = camToScreenSpace(renderContext, sprite->drect);
             bool err = SDL_RenderTextureRotated(
                     renderContext->renderer,
                     sprite->texture->texture,
-                    &(sprite->srect), &(sprite->drect),
+                    &(sprite->srect), &(sprite_drect__scr),
                     0,
                     nullptr,
                     sprite->flip_mode
@@ -423,16 +429,17 @@ Result<VoidResult, GameError> RenderingSystem::Draw(RenderContext* renderContext
             if (!atlass)
                 continue;
 
-            SDL_FRect r = tile->drect;
-            auto cam_size = renderContext->camera_size;
-            int start_col = std::floor(std::max(0.0f, -r.x) / tile_map->tile_w);
-            int start_row = std::floor(std::max(0.0f, -r.y) / tile_map->tile_h);
-            int end_col = tile_map->columns - std::floor(
-                    std::max(0.0f, (r.x+tile_map->width -  cam_size.x)) /
+            // we're still working on scene space
+            const SDL_FRect r = tile->drect;
+            const auto cam_size = renderContext->camera_size;
+            const int start_col = std::floor(std::max(0.0f, -r.x) / tile_map->tile_w);
+            const int start_row = std::floor(std::max(0.0f, -r.y) / tile_map->tile_h);
+            const int end_col = tile_map->columns - std::floor(
+                    std::max(0.0f, (r.x+tile_map->width - cam_size.x)) /
                     tile_map->tile_w
                     );
-            int end_row = tile_map->rows - std::floor(
-                    std::max(0.0f, (r.y+tile_map->height -  cam_size.y)) /
+            const int end_row = tile_map->rows - std::floor(
+                    std::max(0.0f, (r.y+tile_map->height - cam_size.y)) /
                     tile_map->tile_h
                     );
 
@@ -441,6 +448,7 @@ Result<VoidResult, GameError> RenderingSystem::Draw(RenderContext* renderContext
             SDL_FRect srect, drect;
             drect.w = tile_map->tile_w;
             drect.h = tile_map->tile_h;
+            drect = camToScreenSpace(renderContext, drect);     // scaling the size
             for (int c=start_col; c<end_col; ++c) {
                 for (int r=start_row; r<end_row; ++r) {
 
@@ -449,8 +457,16 @@ Result<VoidResult, GameError> RenderingSystem::Draw(RenderContext* renderContext
                         continue;
 
                     srect = atlass->getRectByIndex(tile_id-1);
-                    drect.x = tile->drect.x + c * tile_map->tile_w;
-                    drect.y = tile->drect.y + r * tile_map->tile_h;
+                    const Vector2 this_tile_pos__scr = 
+                        camToScreenSpace(
+                                renderContext,
+                                Vector2(
+                                    tile->drect.x + c * tile_map->tile_w,
+                                    tile->drect.y + r * tile_map->tile_h
+                                )
+                                );
+                    drect.x = this_tile_pos__scr.x;
+                    drect.y = this_tile_pos__scr.y;
 
                     SDL_RenderTexture(
                             renderContext->renderer,
@@ -476,6 +492,8 @@ Result<VoidResult, GameError> RenderingSystem::Draw(RenderContext* renderContext
                     srect = atlass->getRectByIndex(tile_id-1);
                     drect.x = tile->drect.x + c * tile_map->tile_w;
                     drect.y = tile->drect.y + r * tile_map->tile_h;
+
+                    // drect = camToScreenSpace(renderContext, drect);
 
                     SDL_RenderTexture(
                             renderContext->renderer,
