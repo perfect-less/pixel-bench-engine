@@ -51,6 +51,7 @@ EntityID EntityManager::createEntity() {
     new_id.id = new_id_index;
     new_id.version = this->m_entities[new_id.id].current_version;
     this->m_entities[new_id.id].active = true;
+    this->m_entities[new_id.id].entityid.version = this->m_entities[new_id.id].current_version;
     this->m_uninitialized_entities.push_back(new_id);
     return new_id;
 }
