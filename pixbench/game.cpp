@@ -49,7 +49,7 @@ Result<VoidResult, GameError> Game::Initialize() {
                 );
 
     // Initialize SDL
-    SDL_InitFlags init_flag = SDL_INIT_VIDEO;
+    SDL_InitFlags init_flag = SDL_INIT_VIDEO | SDL_INIT_AUDIO;
     if (this->gameConfig.enable_joystick_and_gamepad) 
         init_flag |= SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD;
     if (!SDL_Init(init_flag)) {

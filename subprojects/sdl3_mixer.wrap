@@ -2,9 +2,7 @@
 directory = SDL3_mixer-3.0.0dev
 url = https://github.com/libsdl-org/SDL_mixer
 wrapdb_version = 3.0.0-1
-patch_filename = sdl3_mixer_3.0.0-1_patch.zip
-patch_url = http://localhost:3030/sdl3_mixer_3.0.0-1_patch.zip
-patch_hash = 4bf86bb840e7d7cd3372b283403403246d90be533944d4d77f2ec35ac016fda4
+patch_directory = SDL3_mixer-3.0.0dev
 revision = HEAD
 
 [provide]
