@@ -1,4 +1,5 @@
 #include "pixbench/game.h"
+#include "SDL3_mixer/SDL_mixer.h"
 #include "pixbench/ecs.h"
 #include "pixbench/utils.h"
 #include "pixbench/vector2.h"
@@ -63,6 +64,11 @@ Result<VoidResult, GameError> Game::Initialize() {
             this->gameConfig.window_width,
             this->gameConfig.window_height
             );
+    if ( !res.isOk() )
+        return res;
+
+    
+    res = PrepareAudio();
     if ( !res.isOk() )
         return res;
 
@@ -136,6 +142,27 @@ Result<VoidResult, GameError> Game::PrepareRenderer(int windowWidth, int windowH
     }
 
     return Result<VoidResult, GameError>::Ok(VoidResult::empty);
+}
+
+
+Void Game::PrepareAudio() {
+    // Create audioContext object
+    this->audioContext = new AudioContext(
+            AUDIO_NUM_CHANNELS
+            );
+
+    // Initalize SDL_mixer
+    MIX_InitFlags mix_init_res = Mix_Init(AUDIO_MIX_INIT_FLAGS);
+    if ( !mix_init_res ) {
+        std::string err_message = 
+            "Can't initialize SDL_Mixer: ";
+        err_message.append(SDL_GetError());
+        return Result<VoidResult, GameError>::Err(
+                GameError(err_message)
+                );
+    }
+
+    return ResultOK;
 }
 
 
