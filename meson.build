@@ -26,6 +26,7 @@ engine_sources = [
   'pixbench/entity.cpp',
   'pixbench/systems.cpp',
   'pixbench/rendering.cpp',
+  'pixbench/audio.cpp',
   ]
 
 sources = []

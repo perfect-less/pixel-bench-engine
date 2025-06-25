@@ -1,6 +1,7 @@
 #ifndef ECS_HEADER
 #define ECS_HEADER
 
+#include "SDL3_mixer/SDL_mixer.h"
 #include "pixbench/game.h"
 #include "pixbench/resource.h"
 #include "pixbench/vector2.h"
@@ -40,7 +41,8 @@ struct EntityID {
 enum ComponentTag {
     CTAG_Generic,
     CTAG_Renderable,
-    CTAG_Script
+    CTAG_Script,
+    CTAG_AudioPlayer
 };
 
 
@@ -220,6 +222,66 @@ public:
 
     virtual void Init(Game* game, EntityManager* entityManager, EntityID self) { };
     virtual void Draw(RenderContext* renderContext, EntityManager* entity_mgr) { };
+};
+
+
+class AudioPlayer : public IComponent {
+private:
+    int m_assigned_channel{ -1 };
+    double m_position{ 0.0 };
+public:
+    ComponentTag getCTag() const override {
+        return CTAG_AudioPlayer;
+    };
+
+    static ComponentTag getComponentTag() {
+        return CTAG_AudioPlayer;
+    };
+
+    std::shared_ptr<AudioClip> clip{ nullptr };
+    int volume{ MIX_MAX_VOLUME };   //!< Volume for audio played by this player
+    bool is_looping{ false };       //!< Set `true` to loop the audio
+
+    /*
+     * Set the audio clip
+     */
+    void setClip(std::shared_ptr<AudioClip> audio_clip);
+
+    /*
+     * Set audio position in seconds
+     */
+    bool setPosition(double position);
+
+    /*
+     * Get audio position in seconds
+     */
+    void getPosition();
+
+    /*
+     * Returns `true` if this player is currently playing audio
+     */
+    bool isPlaying();
+
+    /*
+     * Play the audio clip, specify at (from 0 to 1) as position to start the audio
+     * play.
+     */
+    bool play(double at=0);
+
+    /*
+     * Pause the currently playing audio.
+     */
+    void pause();
+
+    /*
+     * Resume paused audio at the last known position.
+     */
+    void resume();
+
+    /*
+     * Pause if audio is playing, otherwise play the audio clip.
+     */
+    void togglePlay();
 };
 
 
@@ -950,6 +1012,13 @@ public:
     Result<VoidResult, GameError> LateUpdate(double delta_time_s, EntityManager* entity_mgr) override; // Animation update
     Result<VoidResult, GameError> PreDraw(RenderContext* renderContext, EntityManager* entity_mgr) override;
     Result<VoidResult, GameError> Draw(RenderContext* renderContext, EntityManager* entity_mgr) override;
+};
+
+
+class AudioSystem : public ISystem {
+public:
+    Result<VoidResult, GameError> Initialize(Game* game, EntityManager* entity_mgr) override;
+    Result<VoidResult, GameError> LateUpdate(double delta_time_s, EntityManager* entity_mgr) override; // Animation update
 };
 
 
