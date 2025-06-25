@@ -1,5 +1,6 @@
 #include "SDL3_mixer/SDL_mixer.h"
 #include "pixbench/game.h"
+#include <algorithm>
 #include <memory>
 
 
@@ -29,7 +30,7 @@ double MusicPlayer::getPosition() {
 
 
 bool MusicPlayer::isPlaying() {
-    return Mix_PlayingMusic();
+    return Mix_PlayingMusic() && !Mix_PausedMusic();
 }
 
 
@@ -58,7 +59,13 @@ void MusicPlayer::pause() {
 
 void MusicPlayer::resume() {
     if ( !(this->isPlaying()) && m_music ) {
-        Mix_ResumeMusic();
+        if (Mix_PausedMusic())
+            Mix_ResumeMusic();
+        else {
+            double start_pos = Mix_GetMusicPosition(m_music->music);
+            start_pos = std::max(0.0, start_pos);
+            this->play(start_pos);
+        }
     }
 }
 

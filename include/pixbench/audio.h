@@ -18,6 +18,27 @@ public:
     Mix_Music* music{ nullptr };
     double length;
     int volume{ MIX_MAX_VOLUME };
+
+    MusicClip() = default;
+    MusicClip(Mix_Music* mix_music) {
+        this->setMusicClip(mix_music);
+    }
+
+    ~MusicClip() {
+        if (music)
+            Mix_FreeMusic(music);
+    }
+
+    /*
+     * Set the music pointer and calculate length duration
+     */
+    void setMusicClip(Mix_Music* mix_music) {
+        if ( !mix_music )
+            return;
+
+        music = mix_music;
+        length = Mix_MusicDuration(music);
+    }
 };
 
 
@@ -82,6 +103,7 @@ class AudioContext {
 public:
     SDL_AudioDeviceID audio_device{ 0 };
     SDL_AudioSpec audio_spec;
+    MusicPlayer* music_player{ nullptr };
     
     AudioContext(
             int num_channels
@@ -108,11 +130,16 @@ public:
                 SDL_LOG_CATEGORY_AUDIO,
                 "Allocated %d audio channel(s)", allocated_channels
                 );
-    
+
+        // initiate music_player
+        music_player = new MusicPlayer();
     }
 
     ~AudioContext() {
         this->closeCurrentAudioDevice();
+
+        if ( this->music_player )
+            delete music_player;
     }
 
     void closeCurrentAudioDevice() {
