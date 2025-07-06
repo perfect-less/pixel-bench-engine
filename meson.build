@@ -13,6 +13,7 @@ project(
 # Includes and dependencies
 engine_includes = [include_directories('include/')]
 sdl3_dep = dependency('sdl3')
+sdl3_mixer_dep = dependency('sdl3_mixer')
 
 # Sources
 engine_sources = [
@@ -25,6 +26,7 @@ engine_sources = [
   'pixbench/entity.cpp',
   'pixbench/systems.cpp',
   'pixbench/rendering.cpp',
+  'pixbench/audio.cpp',
   ]
 
 sources = []
@@ -38,6 +40,6 @@ includes = engine_includes
 sources += engine_sources
 executable(
   'game', sources,
-  dependencies: [sdl3_dep],
+  dependencies: [sdl3_dep, sdl3_mixer_dep],
   include_directories: includes
   )

@@ -2,8 +2,10 @@
 #define GAME_HEADER
 
 
+#include "pixbench/engine_config.h"
 #include "pixbench/gameconfig.h"
 #include "pixbench/renderer.h"
+#include "pixbench/audio.h"
 #include "pixbench/utils.h"
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_render.h>
@@ -86,6 +88,7 @@ private:
 public:
     const char* title;                          //!< game title
     RenderContext* renderContext;               //!< global render context
+    AudioContext* audioContext;                 //!< global audio context
     EntityManager* entityManager = nullptr;     //!< global entityManager, created when Game::Initialize() were called
 
     std::shared_ptr<ISystem> scriptSystem = nullptr;    //!< script system
@@ -192,6 +195,11 @@ public:
      * Create renderContext and apply configs (e.g vsync)
      */
     Result<VoidResult, GameError> PrepareRenderer(int windowWidth, int windowHeight);
+
+    /**
+     * Create audioContext and apply configs (e.g frequency, etc.)
+     */
+    Result<VoidResult, GameError> PrepareAudio();
 
     /**
      * Initialize a Game

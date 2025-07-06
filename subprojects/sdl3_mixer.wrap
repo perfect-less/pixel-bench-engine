@@ -1,0 +1,9 @@
+[wrap-git]
+directory = SDL3_mixer-3.0.0dev
+url = https://github.com/libsdl-org/SDL_mixer
+wrapdb_version = 3.0.0-1
+patch_directory = SDL3_mixer-3.0.0dev
+revision = HEAD
+
+[provide]
+sdl3_mixer = sdl3_mixer_dep

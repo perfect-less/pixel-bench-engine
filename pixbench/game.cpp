@@ -2,6 +2,7 @@
 #include "pixbench/ecs.h"
 #include "pixbench/utils.h"
 #include "pixbench/vector2.h"
+#include "SDL3_mixer/SDL_mixer.h"
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_init.h>
@@ -49,7 +50,7 @@ Result<VoidResult, GameError> Game::Initialize() {
                 );
 
     // Initialize SDL
-    SDL_InitFlags init_flag = SDL_INIT_VIDEO;
+    SDL_InitFlags init_flag = SDL_INIT_VIDEO | SDL_INIT_AUDIO;
     if (this->gameConfig.enable_joystick_and_gamepad) 
         init_flag |= SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD;
     if (!SDL_Init(init_flag)) {
@@ -63,6 +64,11 @@ Result<VoidResult, GameError> Game::Initialize() {
             this->gameConfig.window_width,
             this->gameConfig.window_height
             );
+    if ( !res.isOk() )
+        return res;
+
+    
+    res = PrepareAudio();
     if ( !res.isOk() )
         return res;
 
@@ -86,6 +92,7 @@ Result<VoidResult, GameError> Game::Initialize() {
 
     this->scriptSystem = std::make_shared<ScriptSystem>();
     this->ecs_systems.push_back(std::make_shared<RenderingSystem>());
+    this->ecs_systems.push_back(std::make_shared<AudioSystem>());
     this->ecs_systems.push_back(scriptSystem);
 
     this->isRunning = true;
@@ -136,6 +143,27 @@ Result<VoidResult, GameError> Game::PrepareRenderer(int windowWidth, int windowH
     }
 
     return Result<VoidResult, GameError>::Ok(VoidResult::empty);
+}
+
+
+Void Game::PrepareAudio() {
+    // Create audioContext object
+    this->audioContext = new AudioContext(
+            AUDIO_NUM_CHANNELS
+            );
+
+    // Initalize SDL_mixer
+    MIX_InitFlags mix_init_res = Mix_Init(AUDIO_MIX_INIT_FLAGS);
+    if ( !mix_init_res ) {
+        std::string err_message = 
+            "Can't initialize SDL_Mixer: ";
+        err_message.append(SDL_GetError());
+        return Result<VoidResult, GameError>::Err(
+                GameError(err_message)
+                );
+    }
+
+    return ResultOK;
 }
 
 

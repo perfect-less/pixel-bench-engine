@@ -5,6 +5,10 @@
  * Last Updated: 2025-04-15
  * */
 
+#ifndef PIXBENCH_ENGINE_CONFIG
+#define PIXBENCH_ENGINE_CONFIG
+
+#include "SDL3_mixer/SDL_mixer.h"
 #include <cstddef>
 
 
@@ -25,3 +29,14 @@ const size_t MAX_ENTITIES = 10000;
  *    entity_manager.AssignComponentToEntity<ScriptType>(entity_id)
  * */
 const size_t MAX_COMPONENTS = 30;
+
+
+
+/*
+ * AUDIO
+ */
+const MIX_InitFlags AUDIO_MIX_INIT_FLAGS = MIX_INIT_OGG | MIX_INIT_WAVPACK;
+const size_t AUDIO_NUM_CHANNELS = 8;
+
+
+#endif

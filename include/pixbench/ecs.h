@@ -1,6 +1,7 @@
 #ifndef ECS_HEADER
 #define ECS_HEADER
 
+#include "SDL3_mixer/SDL_mixer.h"
 #include "pixbench/game.h"
 #include "pixbench/resource.h"
 #include "pixbench/vector2.h"
@@ -9,6 +10,7 @@
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
+#include <array>
 #include <bitset>
 #include <cstddef>
 #include <cwchar>
@@ -40,7 +42,8 @@ struct EntityID {
 enum ComponentTag {
     CTAG_Generic,
     CTAG_Renderable,
-    CTAG_Script
+    CTAG_Script,
+    CTAG_AudioPlayer
 };
 
 
@@ -220,6 +223,103 @@ public:
 
     virtual void Init(Game* game, EntityManager* entityManager, EntityID self) { };
     virtual void Draw(RenderContext* renderContext, EntityManager* entity_mgr) { };
+};
+
+
+class AudioPlayer : public IComponent {
+private:
+    int m_assigned_channel{ -1 };
+    double m_position{ 0.0 };
+    double m_last_known_position{ 0.0 };
+    bool m_is_playing{ false };
+    bool m_is_need_to_replay{ false };
+    bool m_is_paused{ false };
+    bool m_is_finished{ false };
+
+    bool m_is_need_sync{ false };
+public:
+    ComponentTag getCTag() const override {
+        return CTAG_AudioPlayer;
+    };
+
+    static ComponentTag getComponentTag() {
+        return CTAG_AudioPlayer;
+    };
+
+    std::shared_ptr<AudioClip> clip{ nullptr };
+    int volume{ MIX_MAX_VOLUME };   //!< Volume for audio played by this player
+    bool is_looping{ false };       //!< Set `true` to loop the audio
+                                    //
+    /*
+     * Get assigned playback channel of this player. It has none if this returns -1
+     */
+    inline int getAssignedChannel() {
+        return m_assigned_channel;
+    }
+
+    /*
+     * Internal methods
+     */
+    int __setAssignedChannel(int channel);
+    bool __isNeedSync();
+    void __resetNeedSyncStatus();
+    void __setIsPlaying(bool is_playing);
+    void __setIsFinished(bool is_finished);
+
+    inline bool __isNeedToReplay() {
+        return m_is_need_to_replay;
+    }
+
+    /*
+     * Set the audio clip
+     */
+    void setClip(std::shared_ptr<AudioClip> audio_clip);
+
+    /*
+     * Get audio position in seconds
+     */
+    double getPosition();
+
+    /*
+     * Returns `true` if this player is currently playing audio
+     */
+    bool isPlaying();
+
+    /*
+     * Returns `true` if this player has finished playing an audio clip
+     */
+    bool isFinished();
+
+    /*
+     * Returns `true` if this player is currently paused
+     */
+    bool isPaused();
+
+    /*
+     * Play the audio clip, specify at (from 0 to 1) as position to start the audio
+     * play.
+     */
+    void play();
+
+    /*
+     * Pause the currently playing audio.
+     */
+    void pause();
+
+    /*
+     * Resume paused audio at the last known position.
+     */
+    void resume();
+
+    /*
+     * Stop audio play
+     */
+    void stop();
+
+    /*
+     * Pause if audio is playing, otherwise play the audio clip.
+     */
+    void togglePlay();
 };
 
 
@@ -762,7 +862,7 @@ public:
      */
     template<typename T>
     ComponentType getComponentIndex() {
-        m_component_manager->getComponentIndex<T>();
+        return m_component_manager->getComponentIndex<T>();
     };
 };
 
@@ -911,8 +1011,9 @@ public:
         } else 
         {
             // Unpack the template parameters into an initializer list
-            size_t component_ids[] = { 0, entity_mgr->getComponentIndex<Types>() ... };
-            for (int i = 0; i < (sizeof...(Types) + 1); i++) {
+            std::array<size_t, sizeof...(Types)> component_ids = { entity_mgr->getComponentIndex<Types>() ... };
+            for (int i = 0; i < sizeof...(Types); i++) {
+                std::cout << "++> i:" << i << " " << component_ids[i] << std::endl;
                 component_mask.set(component_ids[i]);
             }
         }
@@ -950,6 +1051,15 @@ public:
     Result<VoidResult, GameError> LateUpdate(double delta_time_s, EntityManager* entity_mgr) override; // Animation update
     Result<VoidResult, GameError> PreDraw(RenderContext* renderContext, EntityManager* entity_mgr) override;
     Result<VoidResult, GameError> Draw(RenderContext* renderContext, EntityManager* entity_mgr) override;
+};
+
+
+class AudioSystem : public ISystem {
+private:
+    std::vector<AudioChannelState> m_channel_states;
+public:
+    Result<VoidResult, GameError> Initialize(Game* game, EntityManager* entity_mgr) override;
+    Result<VoidResult, GameError> LateUpdate(double delta_time_s, EntityManager* entity_mgr) override; // Animation update
 };
 
 
