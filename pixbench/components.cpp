@@ -1,6 +1,5 @@
 #include "pixbench/ecs.h"
 #include "pixbench/vector2.h"
-#include <ptrauth.h>
 
 
 void Transform::SetPosition(Vector2 position) {
