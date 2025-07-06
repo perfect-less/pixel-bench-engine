@@ -1,8 +1,35 @@
+#include "pixbench/audio.h"
 #include "SDL3_mixer/SDL_mixer.h"
-#include "pixbench/game.h"
 #include <algorithm>
 #include <memory>
 
+
+// ==================== Loader ====================
+Result<std::shared_ptr<AudioClip>, std::string> LoadAudioClip(std::string clip_path) {
+    auto res = Result<std::shared_ptr<AudioClip>, std::string>();
+
+    std::shared_ptr<AudioClip> clip = std::make_shared<AudioClip>();
+    Mix_Chunk* chunk = Mix_LoadWAV(clip_path.c_str());
+    if ( !chunk ) {
+        std::string err_message =
+            "Can't open file '"
+            ;
+        err_message.append(
+                clip_path
+                );
+        err_message.append(
+                SDL_GetError()
+                );
+        return res.Err(err_message);
+    }
+
+    clip->chunk = chunk;
+    // TODO: Calculate chunk duration
+
+    return res.Ok(clip);
+}
+
+// ==================== MusicPlayer ====================
 
 void MusicPlayer::setMusic(std::shared_ptr<MusicClip> music) {
     if ( this->isPlaying() )

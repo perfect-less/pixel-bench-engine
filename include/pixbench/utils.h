@@ -94,6 +94,15 @@ public:
         return &m_ok_result;
     }
 
+
+    /**
+     * Return raw ok result
+     * Useful when the result is a shared_ptr
+     */
+    T getOkResultRaw() {
+        return m_ok_result;
+    }
+
     /**
      * Return nullptr if the result it not Error
      */
@@ -101,6 +110,14 @@ public:
         if ( !isError() )
             return nullptr;
         return &m_err_result;
+    }
+
+    /**
+     * Return raw error result
+     * Useful when the result is a shared_ptr
+     */
+    E getErrResultRaw() {
+        return m_err_result;
     }
     
 };

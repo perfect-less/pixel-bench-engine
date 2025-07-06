@@ -1,4 +1,6 @@
+#include "SDL3_mixer/SDL_mixer.h"
 #include "pixbench/ecs.h"
+#include "pixbench/engine_config.h"
 #include "pixbench/game.h"
 #include "pixbench/renderer.h"
 #include "pixbench/vector2.h"
@@ -507,5 +509,152 @@ Result<VoidResult, GameError> RenderingSystem::Draw(RenderContext* renderContext
     }
     std::cout << "RenderingSystem::Draw::END" << std::endl;
 
+    return ResultOK;
+}
+
+
+// ===================== Audio System =====================
+
+
+Result<VoidResult, GameError> AudioSystem::Initialize(Game* game, EntityManager* entity_mgr) {
+    std::cout << "AudioSystem::Initialize::BEGIN" << std::endl;
+    // initialized states
+    m_channel_states.resize(
+            game->audioContext->numAvailableChannel()
+            );
+
+    std::cout << "AudioSystem::Initialize::END" << std::endl;
+    return ResultOK;
+}
+
+
+Result<VoidResult, GameError> AudioSystem::LateUpdate(double delta_time_s, EntityManager* entity_mgr) {
+    std::cout << "AudioSystem::LateUpdate::BEGINEN" << std::endl;
+
+    EntityID need_sync_entities[MAX_ENTITIES];
+    int need_sync_entities_len = 0;
+
+    // update all audio play states
+    // gather audio_player that need to be synched
+    for (EntityID ent_id : EntityViewByTypes<AudioPlayer>(entity_mgr)) {
+        if ( !(entity_mgr->isEntityHasComponent<AudioPlayer>(ent_id)) )
+            continue;
+
+        AudioPlayer* audio_player = entity_mgr->getEntityComponent<AudioPlayer>(ent_id);
+        if ( !audio_player )
+            continue;
+
+        if ( !audio_player->__isNeedSync() )
+            continue;
+
+        need_sync_entities[need_sync_entities_len] = ent_id;
+        need_sync_entities_len++;
+    }
+
+    // sync volume, etc.
+    for (int i = 0; i < need_sync_entities_len; ++i) {
+        const EntityID ent_id = need_sync_entities[i];
+        AudioPlayer* audio_player = entity_mgr->getEntityComponent<AudioPlayer>(ent_id);
+
+        const int channel = audio_player->getAssignedChannel();
+        if ( channel == -1 )
+            continue;
+
+        // change volume
+        if ( this->m_channel_states[channel].volume != audio_player->volume ) {
+            Mix_Volume(channel, audio_player->volume);
+            this->m_channel_states[channel].volume = audio_player->volume;
+        }
+
+        // paused what need to be paused
+        if ( this->m_channel_states[channel].is_paused != audio_player->isPaused() ) {
+            if ( audio_player->isPaused() ) {
+                Mix_Pause(channel);
+            }
+            else {
+                Mix_Resume(channel);
+            }
+            this->m_channel_states[channel].is_paused = audio_player->isPaused();
+        }
+
+        // stop what need to be stopped, to obtained all available channels
+        if ( this->m_channel_states[channel].is_playing != audio_player->isPlaying() && !audio_player->isPlaying() ) {
+            Mix_HaltChannel(channel);
+            this->m_channel_states[channel].is_playing = false;
+            this->m_channel_states[channel].is_active = false;
+            this->m_channel_states[channel].clip = nullptr;
+            this->m_channel_states[channel].position = 0.0;
+            this->m_channel_states[channel].channel = -1;
+
+            audio_player->__setAssignedChannel(-1);
+            audio_player->__setIsFinished(true);
+        }
+
+        // play what needs to be replayed
+        if ( audio_player->__isNeedToReplay() && audio_player->getAssignedChannel() != -1 ) {
+            int loop_param = 0;
+            if (audio_player->is_looping) {
+                loop_param = -1;
+            }
+            Mix_PlayChannel(
+                    audio_player->getAssignedChannel(),
+                    audio_player->clip->chunk,
+                    loop_param
+                    );
+        }
+    }
+
+    // aligning play state
+    for (auto ent_id : EntityViewByTypes<AudioPlayer>(entity_mgr)) {
+        AudioPlayer* audio_player = entity_mgr->getEntityComponent<AudioPlayer>(ent_id);
+
+        int assigned_channel = audio_player->getAssignedChannel();
+        if ( assigned_channel == -1 )
+            continue;
+
+        bool is_channel_playing = Mix_Playing(assigned_channel);
+        if ( !is_channel_playing ) {
+            m_channel_states[assigned_channel].is_playing = is_channel_playing;
+            audio_player->__setIsPlaying(is_channel_playing);
+            audio_player->__setAssignedChannel(-1);
+        }
+    }
+
+    // play what need to be played
+    for (int i = 0; i < need_sync_entities_len; ++i) {
+        const EntityID ent_id = need_sync_entities[i];
+        AudioPlayer* audio_player = entity_mgr->getEntityComponent<AudioPlayer>(ent_id);
+
+        if ( audio_player->isPlaying() && audio_player->getAssignedChannel() == -1 ) {
+            int loop_param = 0;
+            if (audio_player->is_looping) {
+                loop_param = -1;
+            }
+
+            const int play_channel = Mix_PlayChannel(-1, audio_player->clip->chunk, loop_param);
+            audio_player->__setAssignedChannel(play_channel);
+
+            if (play_channel != -1) {
+                m_channel_states[play_channel].is_active = true;
+                m_channel_states[play_channel].clip = audio_player->clip;
+                m_channel_states[play_channel].channel = play_channel;
+                m_channel_states[play_channel].is_playing = true;
+                m_channel_states[play_channel].is_paused = false;
+                m_channel_states[play_channel].position = 0.0;
+                m_channel_states[play_channel].volume = audio_player->volume;
+
+                Mix_Volume(play_channel, audio_player->volume);
+            }
+        }
+    }
+
+    for (int i = 0; i < need_sync_entities_len; ++i) {
+        const EntityID ent_id = need_sync_entities[i];
+        AudioPlayer* audio_player = entity_mgr->getEntityComponent<AudioPlayer>(ent_id);
+
+        audio_player->__resetNeedSyncStatus();
+    }
+
+    std::cout << "AudioSystem::LateUpdate::END" << std::endl;
     return ResultOK;
 }

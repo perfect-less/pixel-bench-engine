@@ -1,4 +1,8 @@
+#ifndef AUDIO_HEADER
+#define AUDIO_HEADER
+
 #include "SDL3_mixer/SDL_mixer.h"
+#include "pixbench/utils.h"
 #include <SDL3/SDL_audio.h>
 #include <memory>
 #include <string>
@@ -9,6 +13,19 @@ class AudioClip {
 public:
     Mix_Chunk* chunk{ nullptr };
     double length;
+    int volume{ MIX_MAX_VOLUME };
+};
+
+
+class AudioChannelState {
+public:
+    bool is_active{ false };
+    int channel{ -1 };
+    bool is_playing{ false };
+    bool is_paused{ false };
+    bool is_looping{ false };
+    std::shared_ptr<AudioClip> clip{ nullptr };
+    double position{ 0.0 };
     int volume{ MIX_MAX_VOLUME };
 };
 
@@ -104,6 +121,7 @@ public:
     SDL_AudioDeviceID audio_device{ 0 };
     SDL_AudioSpec audio_spec;
     MusicPlayer* music_player{ nullptr };
+    int num_channel{ MIX_DEFAULT_CHANNELS };
     
     AudioContext(
             int num_channels
@@ -130,6 +148,7 @@ public:
                 SDL_LOG_CATEGORY_AUDIO,
                 "Allocated %d audio channel(s)", allocated_channels
                 );
+        this->num_channel = allocated_channels;
 
         // initiate music_player
         music_player = new MusicPlayer();
@@ -140,6 +159,10 @@ public:
 
         if ( this->music_player )
             delete music_player;
+    }
+
+    int numAvailableChannel() {
+        return this->num_channel;
     }
 
     void closeCurrentAudioDevice() {
@@ -205,3 +228,17 @@ public:
         return audio_devices;
     }
 };
+
+
+// ==================== Audio Utility Functions ====================
+
+/*
+ * Load Audio Clip (internally as SDL_Mixer's Mix_Chunk)
+ * return: Result::Ok containing std::shared_ptr<AudioClip> if the chunk is
+ * successfuly loaded. Otherwise return Result::Err containing error message
+ * as std::string
+ */
+Result<std::shared_ptr<AudioClip>, std::string> LoadAudioClip(std::string clip_path);
+
+
+#endif
