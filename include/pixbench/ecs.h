@@ -116,17 +116,19 @@ public:
 
 class Sprite : public RenderableComponent {
 private:
+    int m_max_frame = 0;
     std::shared_ptr<SpriteAnimation> sprite_anim = nullptr;
 public:
-    int max_frame = 0;
     int current_frame = 0;
     double current_anim_time_s = 0;
 
-    SDL_FlipMode flip_mode = SDL_FlipMode::SDL_FLIP_NONE;  // flip mode for the renderables
-    Vector2 offset;                                        // offset for rendering Sprite relative to transform
-    std::shared_ptr<Res_SDL_Texture> texture = nullptr;    // texture to render
+    double animation_speed_multiplier = 1;                  //!< animation speed multiplier (multiplied on top of SpriteAnimation' speed)
+    SDL_FlipMode flip_mode = SDL_FlipMode::SDL_FLIP_NONE;   //!< flip mode for the renderables
+    Vector2 offset;                                         //!< offset for rendering Sprite relative to transform
+    std::shared_ptr<Res_SDL_Texture> texture = nullptr;     //!< texture to render
 
     bool paused = false;
+    bool is_animation_finished = false;
 
     RenderableTag getRenderableTag() const override {
         return RCTAG_Sprite;
@@ -138,13 +140,22 @@ public:
             ) {
         this->sprite_anim = sprite_anim;
         this->texture = sprite_anim->res_sheet->res_texture;
+        this->m_max_frame = 1 + sprite_anim->end_sheet_index - sprite_anim->start_sheet_index;
         if (reset_anim)
             this->ResetAnimation();
     };
 
+    int maxFrame() {
+        return m_max_frame;
+    }
+
     void ResetAnimation() {
         this->current_frame = 0;
         this->current_anim_time_s = 0;
+    }
+
+    bool isAnimationFinished() {
+        return is_animation_finished;
     }
 
     void SetTexture(

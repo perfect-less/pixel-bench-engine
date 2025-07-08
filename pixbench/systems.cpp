@@ -220,20 +220,26 @@ Result<VoidResult, GameError> RenderingSystem::LateUpdate(double delta_time_s, E
                     continue;
                 }
 
+                sprite->is_animation_finished = false;
+
                 sprite->current_anim_time_s += delta_time_s;
-                int elapsed_frames = std::floor(sprite->current_anim_time_s * (double)sprite_anim->animation_speed);
-                double time_residue = std::fmod(sprite->current_anim_time_s, 1.0/(double)sprite_anim->animation_speed);
+                const double animation_speed = (double)sprite_anim->animation_speed * sprite->animation_speed_multiplier;
+                const int elapsed_frames = std::floor(sprite->current_anim_time_s * animation_speed);
+                const double time_residue = std::fmod(sprite->current_anim_time_s, 1.0/animation_speed);
                 sprite->current_anim_time_s = time_residue;
                 sprite->current_frame += elapsed_frames;
 
-                const int frame_counts = 1 + sprite_anim->end_sheet_index - sprite_anim->start_sheet_index;
+                const int max_frame = sprite->maxFrame();
+                if (sprite->current_frame >= max_frame) {
+                    sprite->is_animation_finished = true;
+                }
                 if (sprite_anim->repeat) {
                     sprite->current_frame = std::fmod(
                             sprite->current_frame,
-                            frame_counts
+                            max_frame
                             );
                 } else {
-                    sprite->current_frame = std::min(sprite->current_frame, frame_counts-1);
+                    sprite->current_frame = std::min(sprite->current_frame, max_frame-1);
                 }
 
                 sprite->srect = sprite_anim->res_sheet->GetRectByFrameIndex(sprite->current_frame);
