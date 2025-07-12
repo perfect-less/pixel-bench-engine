@@ -39,4 +39,11 @@ const MIX_InitFlags AUDIO_MIX_INIT_FLAGS = MIX_INIT_OGG | MIX_INIT_WAVPACK;
 const size_t AUDIO_NUM_CHANNELS = 8;
 
 
+
+/*
+ * PHYSICS
+ */
+const size_t FIXED_UPDATE_RATE = 60;
+
+
 #endif

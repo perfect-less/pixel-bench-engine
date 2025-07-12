@@ -1,5 +1,6 @@
 #include "pixbench/game.h"
 #include "pixbench/ecs.h"
+#include "pixbench/engine_config.h"
 #include "pixbench/utils.h"
 #include "pixbench/vector2.h"
 #include "SDL3_mixer/SDL_mixer.h"
@@ -188,7 +189,7 @@ Result<VoidResult, GameError> Game::OnEvent(SDL_Event *event) {
     //     this->Quit();
     // }
 
-    double lastTicks = this->lastTicksNS;
+    double lastTicks = this->lastTicksU__ns;
 
     // Let the system handle the event
     for (auto& system : this->ecs_systems) {
@@ -202,7 +203,7 @@ Result<VoidResult, GameError> Game::OnEvent(SDL_Event *event) {
 
 Result<VoidResult, GameError> Game::Itterate() {
     double now_ns = ((double)SDL_GetTicksNS());
-    double delta_time_s = (now_ns - this->lastTicksNS) / 1000000000.0;
+    double delta_time_s = (now_ns - this->lastTicksU__ns) / 1000000000.0;
 
     // std::cout << "Game::Itterate called (" << delta_time_s << ")" << std::endl;
 
@@ -225,26 +226,37 @@ Result<VoidResult, GameError> Game::Itterate() {
             return res;
         }
     }
+    this->lastTicksU__ns = now_ns;
 
     // TO DO: FixedUpdate cascade, `while update is due`
-    for (auto& system : this->ecs_systems) {
-        res = system->FixedUpdate(delta_time_s, this->entityManager);
-        if ( !res.isOk() ) {
-            return res;
+    // while (not is_deadline_been_made()) {
+    //      FixedUpdate();
+    // }
+    while ( this->lastTicksFU__ns < now_ns ) {
+        delta_time_s = 1.0/((double)FIXED_UPDATE_RATE);
+
+        for (auto& system : this->ecs_systems) {
+            res = system->FixedUpdate(delta_time_s, this->entityManager);
+            if ( !res.isOk() ) {
+                return res;
+            }
         }
+
+        now_ns = ((double)SDL_GetTicksNS());
+        this->lastTicksFU__ns += delta_time_s*1000000000.0;
     }
 
     // TO DO: LateUpdate cascade
     now_ns = ((double)SDL_GetTicksNS());
-    delta_time_s = (now_ns - this->lastTicksNS) / 1000000000.0;
+    delta_time_s = (now_ns - this->lastTicksLU__ns) / 1000000000.0;
     for (auto& system : this->ecs_systems) {
         res = system->LateUpdate(delta_time_s, this->entityManager);
         if ( !res.isOk() ) {
             return res;
         }
     }
+    this->lastTicksLU__ns = now_ns;
 
-    // TO DO: Handle nodes destruction
 
     bool is_success;
 
@@ -309,7 +321,6 @@ Result<VoidResult, GameError> Game::Itterate() {
                 );
     }
 
-    this->lastTicksNS = now_ns;
 
     return ResultOK;
 }
