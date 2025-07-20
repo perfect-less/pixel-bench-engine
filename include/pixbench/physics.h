@@ -1,0 +1,158 @@
+#ifndef PHYSICS_HEADER
+#define PHYSICS_HEADER
+
+#include "pixbench/engine_config.h"
+#include "pixbench/vector2.h"
+#include <cmath>
+#include <cstddef>
+#include <cstdlib>
+
+
+class CollisionManifold {
+public:
+    Vector2 normal = Vector2::RIGHT;
+    float penetration_depth = 0.0;
+    size_t point_count = 0;
+    Vector2 points[2];
+
+    CollisionManifold() = default;
+
+    CollisionManifold(
+            Vector2 normal,
+            float penetration_depth
+            )
+        : 
+        normal(normal),
+        penetration_depth(penetration_depth)
+    {};
+
+    void setPoints(const Vector2 collision_points[], size_t counts) {
+        if ( counts > 2 || counts <= 0 )
+            return;
+
+        this->point_count = counts;
+        for (int i=0; i<counts; ++i) {
+            this->points[i] = collision_points[i];
+        }
+    }
+
+    void flipNormal() {
+        normal = normal * -1.0;
+    }
+};
+
+
+struct Edge {
+    Vector2 p1;
+    Vector2 p2;
+    Vector2 normal;
+};
+
+
+/*
+ * Polygon is a list of points that should resulted in a convex body
+ * when connected in a counter-clockwise direction.
+ */
+class Polygon {
+private:
+public:
+    Vector2 vertex[MAX_POLYGON_VERTEX];
+    Vector2 centroid = Vector2::ZERO;
+    size_t vertex_counts = 0;
+
+    void setVertex(Vector2 vertex[], size_t counts) {
+        if ( counts > MAX_POLYGON_VERTEX )
+            return;
+
+        this->vertex_counts = counts;
+        for (int i=0; i<counts; ++i) {
+            this->vertex[i] = vertex[i];
+        }
+        calculateCentroid();
+    }
+
+    void calculateCentroid() {
+        float x = 0;
+        float y = 0;
+        for (int i=0; i<this->vertex_counts; ++i) {
+            x += this->vertex[i].x / vertex_counts;
+            y += this->vertex[i].y / vertex_counts;
+        }
+        centroid.x = x;
+        centroid.y = y;
+    }
+
+    Vector2 getVertex(size_t index, Vector2 offset=Vector2(), double rotation=0) {
+        return vertex[index].rotated(rotation) + offset;
+    }
+
+    Edge getEdge(size_t index, Vector2 offset=Vector2(), double rotation=0) {
+        Vector2 p1, p2, normal;
+        
+        p1 = vertex[index];
+        p2 = vertex[(index+1) % vertex_counts];
+
+        if ( rotation != 0.0 ) {
+            p1.rotate(rotation);
+            p2.rotate(rotation);
+        }
+
+        normal = (p2 - p1).rotated(-90.0 * M_PI).normalized();
+
+        p1 += offset;
+        p2 += offset;
+
+        Edge edge;
+        edge.p1 = p1;
+        edge.p2 = p2;
+        edge.normal = normal;
+
+        return edge;
+    }
+
+    bool isConvex() {
+        if ( vertex_counts == 0 )
+            return false;
+
+        for (int i=0; i<vertex_counts; ++i) {
+            const Edge ref_edge = getEdge(i);
+            const Vector2 normal = ref_edge.normal;
+            
+            for (int j=0; j<vertex_counts; ++j) {
+                if ( j == i || j == (i+1)%vertex_counts )
+                    continue;
+
+                const double angle = Vector2::AngleBetween(
+                        normal, (vertex[j] - getVertex(i).normalized()));
+                if (std::abs(angle) < M_PI/2.0) {
+                    return false;
+                }
+            }
+        }
+
+
+        return true;
+    }
+};
+
+class BoxCollider;
+class CircleCollider;
+class PolygonCollider;
+
+
+bool boxToBoxCollision(BoxCollider* box_1, BoxCollider* box_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
+
+bool boxToCircleCollision(BoxCollider* box, CircleCollider* circle, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
+
+bool boxToPolygonCollision(BoxCollider* box, PolygonCollider* polygon, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
+
+
+bool circleToCircleCollision(CircleCollider* circle_1, CircleCollider* circle_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
+
+bool circleToPolygonCollision(CircleCollider* circle, PolygonCollider* polygon, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
+
+
+bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* polygon_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
+
+
+#endif

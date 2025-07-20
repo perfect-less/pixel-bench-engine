@@ -44,6 +44,11 @@ const size_t AUDIO_NUM_CHANNELS = 8;
  * PHYSICS
  */
 const size_t FIXED_UPDATE_RATE = 60;
+const size_t MAX_POLYGON_VERTEX = 16;
+
+
+// Uncomment this to draw collider debug lines
+#define PHYSICS_DEBUG_DRAW
 
 
 #endif

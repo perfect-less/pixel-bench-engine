@@ -1,6 +1,7 @@
 #include "pixbench/ecs.h"
 #include "pixbench/engine_config.h"
 #include "pixbench/game.h"
+#include "pixbench/physics.h"
 #include "pixbench/renderer.h"
 #include "pixbench/vector2.h"
 #include "SDL3_mixer/SDL_mixer.h"
@@ -662,5 +663,278 @@ Result<VoidResult, GameError> AudioSystem::LateUpdate(double delta_time_s, Entit
     }
 
     std::cout << "AudioSystem::LateUpdate::END" << std::endl;
+    return ResultOK;
+}
+
+
+
+// ===================== Physics System =====================
+
+
+PhysicsSystem::PhysicsSystem() {
+    m_physics_components_mask.reset();
+}
+
+
+Result<VoidResult, GameError> PhysicsSystem::Initialize(Game* game, EntityManager* entity_mgr) {
+    return ResultOK;
+}
+
+
+Result<VoidResult, GameError> PhysicsSystem::OnComponentRegistered(const ComponentDataPayload* component_info) {
+    ComponentTag ctag = component_info->ctag;
+    size_t cindex = component_info->cindex;
+
+    if (ctag == CTAG_Collider) {
+        this->m_physics_components_mask.set(cindex);
+    }
+
+    return ResultOK;
+}
+
+
+Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, EntityManager* entity_mgr) {
+
+    struct ColliderObject {
+        EntityID entity;
+        Collider* collider = nullptr;
+        ColliderTag collider_tag;
+    };
+    
+    std::vector<ColliderObject> colliders;
+    colliders.reserve(MAX_ENTITIES); // set capacity to at least contains all entities
+    
+    // list all colliders
+    for (size_t cindex=0; cindex<MAX_COMPONENTS; ++cindex) {
+        if (!(this->m_physics_components_mask[cindex]))
+            continue; // skip non-collider components
+
+        std::bitset<MAX_COMPONENTS> mask;
+        mask.reset();
+        mask.set(cindex);
+        for (auto ent_id : EntityView(entity_mgr, mask, false)) {
+            auto collider = entity_mgr->getEntityComponentCasted<Collider>(
+                    ent_id, cindex);
+            auto transform = entity_mgr->getEntityComponent<Transform>(
+                    ent_id);
+            if ( !transform )
+                continue;
+
+            collider->__transform.SetPosition(transform->GlobalPosition());
+            collider->__transform.rotation = transform->rotation;
+            ColliderObject collider_object;
+            collider_object.entity = ent_id;
+            collider_object.collider = collider;
+            collider_object.collider_tag = collider->getColliderTag();
+            colliders.push_back(collider_object);
+        }
+    }
+    
+    // narrow phase: pair checks
+    // for now, we'll only gonna do naive every pair checks
+    int ind = 0;
+    for (auto& coll_1 : colliders) {
+        for (auto coll_2 = colliders.begin() + ind; coll_2 != colliders.end(); ++coll_2) {
+            if ( coll_1.entity.id == coll_2->entity.id )
+                continue;
+
+            // pair checking
+            CollisionManifold manifold = CollisionManifold(Vector2::RIGHT, 0.0);
+            bool is_body_1_the_ref = false;
+            bool is_colliding = true;
+            switch (coll_1.collider_tag) {
+                case COLTAG_Box:
+                    switch (coll_2->collider_tag) {
+                        case COLTAG_Box:
+                            is_colliding = boxToBoxCollision(
+                                    static_cast<BoxCollider*>(coll_1.collider),
+                                    static_cast<BoxCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                        case COLTAG_Circle:
+                            is_colliding = boxToCircleCollision(
+                                    static_cast<BoxCollider*>(coll_1.collider),
+                                    static_cast<CircleCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                        case COLTAG_Polygon:
+                            is_colliding = boxToPolygonCollision(
+                                    static_cast<BoxCollider*>(coll_1.collider),
+                                    static_cast<PolygonCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                    }
+                    break;
+                case COLTAG_Circle:
+                    switch (coll_2->collider_tag) {
+                        case COLTAG_Box:
+                            is_colliding = boxToCircleCollision(
+                                    static_cast<BoxCollider*>(coll_2->collider),
+                                    static_cast<CircleCollider*>(coll_1.collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                        case COLTAG_Circle:
+                            is_colliding = circleToCircleCollision(
+                                    static_cast<CircleCollider*>(coll_1.collider),
+                                    static_cast<CircleCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                        case COLTAG_Polygon:
+                            is_colliding = circleToPolygonCollision(
+                                    static_cast<CircleCollider*>(coll_1.collider),
+                                    static_cast<PolygonCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                    }
+                    break;
+                case COLTAG_Polygon:
+                    switch (coll_2->collider_tag) {
+                        case COLTAG_Box:
+                            is_colliding = boxToPolygonCollision(
+                                    static_cast<BoxCollider*>(coll_2->collider),
+                                    static_cast<PolygonCollider*>(coll_1.collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                        case COLTAG_Circle:
+                            is_colliding = circleToPolygonCollision(
+                                    static_cast<CircleCollider*>(coll_2->collider),
+                                    static_cast<PolygonCollider*>(coll_1.collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                        case COLTAG_Polygon:
+                            is_colliding = polygonToPolygonCollision(
+                                    static_cast<PolygonCollider*>(coll_1.collider),
+                                    static_cast<PolygonCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                    }
+                    break;
+            }
+
+            // TODO: handle collision
+            // the returned manifold is in the perspective of the reference body
+            // determined the reference body using `is_body_1_the_ref`
+
+            // no manifold points means no collision
+            if ( manifold.point_count == 0 ) {
+                // if originally no collision happening between this 2 object
+                if ( coll_1.collider->getManifold().point_count == 0 )
+                    continue;
+                
+                coll_1.collider->setManifold(manifold);
+                coll_2->collider->setManifold(manifold);
+
+                if ( is_body_1_the_ref )
+                    coll_2->collider->getManifold().flipNormal();
+                else
+                    coll_1.collider->getManifold().flipNormal();
+                
+                coll_1.collider->__triggerOnBodyLeave();
+                coll_2->collider->__triggerOnBodyLeave();
+            }
+            // manifold points means there's collision
+            else {
+                bool trigger_enter = false;
+                // if originally no collision happening between this 2 object
+                if ( coll_1.collider->getManifold().point_count == 0 ) 
+                    trigger_enter = true;
+
+                coll_1.collider->setManifold(manifold);
+                coll_2->collider->setManifold(manifold);
+
+                if ( is_body_1_the_ref )
+                    coll_2->collider->getManifold().flipNormal();
+                else
+                    coll_1.collider->getManifold().flipNormal();
+
+                if ( trigger_enter ) {
+                    coll_1.collider->__triggerOnBodyEnter();
+                    coll_2->collider->__triggerOnBodyEnter();
+                }
+            }
+        }
+        
+        ++ind;
+    }
+
+    return ResultOK;
+}
+
+
+Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, EntityManager* entity_mgr) {
+
+#ifdef PHYSICS_DEBUG_DRAW
+
+    // draw 
+    for (size_t cindex=0; cindex<MAX_COMPONENTS; ++cindex) {
+        if (!(this->m_physics_components_mask[cindex]))
+            continue; // skip non-collider components
+
+        std::bitset<MAX_COMPONENTS> mask;
+        mask.reset();
+        mask.set(cindex);
+        
+        for (auto ent_id : EntityView(entity_mgr, mask, false)) {
+            Collider* coll = entity_mgr->getEntityComponentCasted<Collider>(ent_id, cindex);
+            if ( !coll )
+                continue;
+
+            Transform* transform = entity_mgr->getEntityComponent<Transform>(ent_id);
+            if ( !transform )
+                continue;
+
+            switch ( coll->getColliderTag() ) {
+                case COLTAG_Box: 
+                    {
+                    BoxCollider* box_coll = static_cast<BoxCollider*>(coll);
+                    const float x = box_coll->__transform.GlobalPosition().x - box_coll->width/2.0;
+                    const float y = box_coll->__transform.GlobalPosition().y - box_coll->height/2.0;
+                    SDL_FRect box_rect = {
+                        x, y,
+                        box_coll->width, box_coll->height
+                    };
+                    SDL_SetRenderDrawColorFloat(
+                            renderContext->renderer,
+                            0.0, 1.0, 0.0, 1.0
+                            );
+                    SDL_RenderRect(
+                            renderContext->renderer,
+                            &box_rect
+                            );
+                    break;
+                    }
+                case COLTAG_Circle:
+                    {
+                    break;
+                    }
+                case COLTAG_Polygon:
+                    {
+                    break;
+                    }
+            }
+        }
+    }
+
+    return ResultOK;
+#endif
+
     return ResultOK;
 }

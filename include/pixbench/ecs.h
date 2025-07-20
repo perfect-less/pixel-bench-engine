@@ -3,6 +3,7 @@
 
 #include "SDL3_mixer/SDL_mixer.h"
 #include "pixbench/game.h"
+#include "pixbench/physics.h"
 #include "pixbench/resource.h"
 #include "pixbench/vector2.h"
 #include "pixbench/renderer.h"
@@ -43,7 +44,8 @@ enum ComponentTag {
     CTAG_Generic,
     CTAG_Renderable,
     CTAG_Script,
-    CTAG_AudioPlayer
+    CTAG_AudioPlayer,
+    CTAG_Collider
 };
 
 
@@ -75,12 +77,142 @@ private:
     Vector2 globalPosition = Vector2();
 
 public:
+    double rotation;
 
     void SetPosition(Vector2 position);
     void SetLocalPosition(Vector2 position);
 
     Vector2 LocalPosition() {return this->localPosition;};
     Vector2 GlobalPosition() {return this->globalPosition;};
+};
+
+
+enum ColliderTag {
+    COLTAG_Box,
+    COLTAG_Circle,
+    COLTAG_Polygon
+};
+
+class Collision {
+public:
+    EntityID body_a;
+    EntityID body_b;
+    bool is_body_a_the_ref = false;
+    CollisionManifold manifold;
+
+    Collision(EntityID body_a, EntityID body_b, CollisionManifold manifold)
+        : body_a(body_a), body_b(body_b), manifold(manifold)
+    {};
+};
+
+class CollisionEvent {
+public:
+    EntityID other;
+    CollisionManifold manifold;
+    
+    CollisionEvent(EntityID other, CollisionManifold manifold)
+        : other(other), manifold(manifold)
+    {};
+};
+
+class Collider : public IComponent {
+private:
+    std::function<void(CollisionManifold&)> m_on_body_enter_callback = nullptr;
+    std::function<void(CollisionManifold&)> m_on_body_leave_callback = nullptr;
+    CollisionManifold m_manifold;
+public:
+    float skin_depth = 1.0;             //!< skin depth for collision detection
+    Transform __transform = Transform();
+
+    void setManifold(CollisionManifold& manifold) {
+        m_manifold.penetration_depth = manifold.penetration_depth;
+        m_manifold.point_count = manifold.point_count;
+        m_manifold.normal = manifold.normal;
+        m_manifold.setPoints(manifold.points, manifold.point_count);
+    }
+
+    CollisionManifold& getManifold() {
+        return m_manifold;
+    }
+
+    virtual ColliderTag getColliderTag() const {
+        return COLTAG_Box;
+    };
+
+    virtual void setOnBodyEnterCallback(
+            std::function<void(CollisionManifold&)> callback_function
+            ) {
+        m_on_body_enter_callback = callback_function;
+    }
+
+    virtual void setOnBodyLeaveCallback(
+            std::function<void(CollisionManifold&)> callback_function
+            ) {
+        m_on_body_leave_callback = callback_function;
+    }
+
+    void __triggerOnBodyEnter() {
+        if ( m_on_body_enter_callback )
+            m_on_body_enter_callback(m_manifold);
+    }
+
+    void __triggerOnBodyLeave() {
+        if ( m_on_body_leave_callback )
+            m_on_body_leave_callback(m_manifold);
+    }
+
+    ComponentTag getCTag() const override {
+        return CTAG_Collider;
+    };
+    static ComponentTag getComponentTag() {
+        return CTAG_Collider;
+    };
+};
+
+
+class BoxCollider : public Collider {
+public:
+    float width =  16.0;            //!< box collider width
+    float height = 16.0;            //!< box collider height
+    
+    ColliderTag getColliderTag() const override {
+        return COLTAG_Box;
+    };
+};
+
+
+class CircleCollider : public Collider {
+public:
+    float radius = 16.0;            //!< circle collider radius
+    
+    ColliderTag getColliderTag() const override {
+        return COLTAG_Box;
+    };
+};
+
+
+class PolygonCollider : public Collider {
+public:
+    Polygon polygon;
+
+    /*
+     * Set polygon
+     * returns: true when successfull (polygon is convex), false otherwise
+     */
+    bool setPolygon(Polygon polygon) {
+        if ( !polygon.isConvex() )
+            return false;
+
+        this->polygon.setVertex(
+                polygon.vertex,
+                polygon.vertex_counts
+                );
+        return true;
+    }
+    
+    ColliderTag getColliderTag() const override {
+        return COLTAG_Box;
+    };
 };
 
 
@@ -1070,7 +1202,20 @@ private:
     std::vector<AudioChannelState> m_channel_states;
 public:
     Result<VoidResult, GameError> Initialize(Game* game, EntityManager* entity_mgr) override;
-    Result<VoidResult, GameError> LateUpdate(double delta_time_s, EntityManager* entity_mgr) override; // Animation update
+    Result<VoidResult, GameError> LateUpdate(double delta_time_s, EntityManager* entity_mgr) override; // Audio update
+};
+
+
+class PhysicsSystem : public ISystem {
+private:
+    std::bitset<MAX_COMPONENTS> m_physics_components_mask;
+public:
+    PhysicsSystem();
+
+    Result<VoidResult, GameError> Initialize(Game* game, EntityManager* entity_mgr) override;
+    Result<VoidResult, GameError> FixedUpdate(double delta_time_s, EntityManager* entity_mgr) override; // Physics update
+    Result<VoidResult, GameError> OnComponentRegistered(const ComponentDataPayload* component_info) override;
+    Result<VoidResult, GameError> Draw(RenderContext* renderContext, EntityManager* entity_mgr) override;
 };
 
 

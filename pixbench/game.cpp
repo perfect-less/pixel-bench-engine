@@ -94,6 +94,7 @@ Result<VoidResult, GameError> Game::Initialize() {
     this->scriptSystem = std::make_shared<ScriptSystem>();
     this->ecs_systems.push_back(std::make_shared<RenderingSystem>());
     this->ecs_systems.push_back(std::make_shared<AudioSystem>());
+    this->ecs_systems.push_back(std::make_shared<PhysicsSystem>());
     this->ecs_systems.push_back(scriptSystem);
 
     this->isRunning = true;

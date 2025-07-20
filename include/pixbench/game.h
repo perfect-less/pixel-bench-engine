@@ -94,7 +94,9 @@ public:
     std::shared_ptr<ISystem> scriptSystem = nullptr;    //!< script system
     std::vector<std::shared_ptr<ISystem>> ecs_systems;  //!< array of systems in ECS
 
-    double lastTicksNS = 0;                     //!< used to keep tracks of game ticks
+    double lastTicksU__ns = 0;                  //!< used to keep tracks of game Update ticks
+    double lastTicksFU__ns = 0;                 //!< used to keep tracks of game FixedUpdate ticks
+    double lastTicksLU__ns = 0;                 //!< used to keep tracks of game LateUpdate ticks
     bool isRunning = false;                     //!< Reflecting the status of whether the game is currently running or not
     
     /**
