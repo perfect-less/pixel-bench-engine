@@ -39,7 +39,7 @@ public:
     /*
      * Return dot product of v1 and v2
      */
-    static double dotProduct(Vector2 v1, Vector2 v2);
+    static float dotProduct(Vector2 v1, Vector2 v2);
 
     /*
      * Angle between Vector2::RIGHT to v1

@@ -82,11 +82,11 @@ public:
         centroid.y = y;
     }
 
-    Vector2 getVertex(size_t index, Vector2 offset=Vector2(), double rotation=0) {
+    Vector2 getVertex(size_t index, Vector2 offset=Vector2::ZERO, double rotation=0) {
         return vertex[index].rotated(rotation) + offset;
     }
 
-    Edge getEdge(size_t index, Vector2 offset=Vector2(), double rotation=0) {
+    Edge getEdge(size_t index, Vector2 offset=Vector2::ZERO, double rotation=0) {
         Vector2 p1, p2, normal;
         
         p1 = vertex[index];
@@ -97,14 +97,11 @@ public:
             p2.rotate(rotation);
         }
 
-        normal = (p2 - p1).rotated(-90.0 * M_PI).normalized();
-
-        p1 += offset;
-        p2 += offset;
+        normal = (p2 - p1).rotated((90.0/180.0) * M_PI).normalized();
 
         Edge edge;
-        edge.p1 = p1;
-        edge.p2 = p2;
+        edge.p1 = p1 + offset;
+        edge.p2 = p2 + offset;
         edge.normal = normal;
 
         return edge;
@@ -154,5 +151,17 @@ bool circleToPolygonCollision(CircleCollider* circle, PolygonCollider* polygon, 
 
 bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* polygon_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
 
+
+// === Physics Debug Drawing ===
+
+/*
+ * Draw cross using SDL_RenderLine.
+ * Use SDL_SetRenderDrawColorFloat before calling this function to set color.
+ */
+void phydebDrawCross(
+        SDL_Renderer* renderer,
+        Vector2* center,
+        float cross_width = 12.0
+        );
 
 #endif

@@ -740,6 +740,7 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
 
             // pair checking
             CollisionManifold manifold = CollisionManifold(Vector2::RIGHT, 0.0);
+            manifold.point_count = 0;
             bool is_body_1_the_ref = false;
             bool is_colliding = true;
             switch (coll_1.collider_tag) {
@@ -834,27 +835,10 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
             // determined the reference body using `is_body_1_the_ref`
 
             // no manifold points means no collision
-            if ( manifold.point_count == 0 ) {
-                // if originally no collision happening between this 2 object
-                if ( coll_1.collider->getManifold().point_count == 0 )
-                    continue;
-                
-                coll_1.collider->setManifold(manifold);
-                coll_2->collider->setManifold(manifold);
-
-                if ( is_body_1_the_ref )
-                    coll_2->collider->getManifold().flipNormal();
-                else
-                    coll_1.collider->getManifold().flipNormal();
-                
-                coll_1.collider->__triggerOnBodyLeave();
-                coll_2->collider->__triggerOnBodyLeave();
-            }
-            // manifold points means there's collision
-            else {
+            if ( is_colliding ) {
                 bool trigger_enter = false;
                 // if originally no collision happening between this 2 object
-                if ( coll_1.collider->getManifold().point_count == 0 ) 
+                if ( coll_1.collider->getManifold().point_count == 0 )
                     trigger_enter = true;
 
                 coll_1.collider->setManifold(manifold);
@@ -869,6 +853,23 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
                     coll_1.collider->__triggerOnBodyEnter();
                     coll_2->collider->__triggerOnBodyEnter();
                 }
+            }
+            // manifold points means there's collision
+            else {
+                // if originally no collision happening between this 2 object
+                if ( coll_1.collider->getManifold().point_count == 0 )
+                    continue;
+
+                coll_1.collider->setManifold(manifold);
+                coll_2->collider->setManifold(manifold);
+
+                if ( is_body_1_the_ref )
+                    coll_2->collider->getManifold().flipNormal();
+                else
+                    coll_1.collider->getManifold().flipNormal();
+                
+                coll_1.collider->__triggerOnBodyLeave();
+                coll_2->collider->__triggerOnBodyLeave();
             }
         }
         
@@ -905,20 +906,49 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                 case COLTAG_Box: 
                     {
                     BoxCollider* box_coll = static_cast<BoxCollider*>(coll);
-                    const float x = box_coll->__transform.GlobalPosition().x - box_coll->width/2.0;
-                    const float y = box_coll->__transform.GlobalPosition().y - box_coll->height/2.0;
-                    SDL_FRect box_rect = {
-                        x, y,
-                        box_coll->width, box_coll->height
-                    };
-                    SDL_SetRenderDrawColorFloat(
+                    if ( box_coll->getManifold().point_count > 0 ) {
+                        SDL_SetRenderDrawColorFloat(
+                                renderContext->renderer,
+                                1.0, 0.0, 0.0, 1.0
+                                );
+                    }
+                    else {
+                        SDL_SetRenderDrawColorFloat(
+                                renderContext->renderer,
+                                0.0, 1.0, 0.0, 1.0
+                                );
+                    }
+                    SDL_FPoint points[5];
+                    for (int i=0; i<4; ++i) {
+                        const Vector2 vert = box_coll->__polygon.getVertex(
+                                i,
+                                box_coll->__transform.GlobalPosition(),
+                                box_coll->__transform.rotation
+                                );
+                        points[i] = { vert.x, vert.y };
+                        if ( i == 0 ) {
+                            points[4] = { vert.x, vert.y };
+                        }
+                    }
+                    SDL_RenderLines(
                             renderContext->renderer,
-                            0.0, 1.0, 0.0, 1.0
-                            );
-                    SDL_RenderRect(
-                            renderContext->renderer,
-                            &box_rect
-                            );
+                            points,
+                            5);
+                    // manifold
+                    CollisionManifold& manifold = box_coll->getManifold();
+                    for (int i=0; i<manifold.point_count; ++i) {
+                        Vector2 contact = manifold.points[i];
+
+                        SDL_SetRenderDrawColorFloat(
+                                renderContext->renderer,
+                                0.0, 0.0, 1.0, 1.0
+                                );
+                        phydebDrawCross(
+                                renderContext->renderer,
+                                &contact
+                                );
+                    }
+
                     break;
                     }
                 case COLTAG_Circle:

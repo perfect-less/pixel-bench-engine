@@ -175,6 +175,28 @@ public:
     float width =  16.0;            //!< box collider width
     float height = 16.0;            //!< box collider height
     
+    Polygon __polygon;
+
+    BoxCollider() {
+        setSize(this->width, this->height);
+    }
+
+    void setSize() {
+        Vector2 verts[4];
+        verts[0] = Vector2(this->width / 2.0, -this->height / 2.0);
+        verts[1] = Vector2(-this->width / 2.0, -this->height / 2.0);
+        verts[2] = Vector2(-this->width / 2.0, this->height / 2.0);
+        verts[3] = Vector2(this->width / 2.0, this->height / 2.0);
+        this->__polygon.setVertex(verts, 4);
+    }
+
+    void setSize(float width, float height) {
+        this->width = width;
+        this->height = height;
+
+        this->setSize();
+    }
+
     ColliderTag getColliderTag() const override {
         return COLTAG_Box;
     };
