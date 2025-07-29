@@ -3,7 +3,8 @@ directory = SDL3_mixer-3.0.0dev
 url = https://github.com/libsdl-org/SDL_mixer
 wrapdb_version = 3.0.0-1
 patch_directory = SDL3_mixer-3.0.0dev
-revision = HEAD
+revision = daf0503cea6d9a521f585d37e785d88c2f066cd0
+# anchor sdl_mixer version to this until sdl_mixer v3 API is stable.
 
 [provide]
 sdl3_mixer = sdl3_mixer_dep
