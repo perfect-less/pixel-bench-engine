@@ -86,6 +86,10 @@ public:
         return vertex[index].rotated(rotation) + offset;
     }
 
+    Vector2 getCentroid(Vector2 offset=Vector2::ZERO, double rotation=0) {
+        return centroid.rotated(rotation) + offset;
+    }
+
     Edge getEdge(size_t index, Vector2 offset=Vector2::ZERO, double rotation=0) {
         Vector2 p1, p2, normal;
         
