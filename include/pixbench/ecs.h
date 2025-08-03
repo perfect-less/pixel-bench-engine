@@ -79,6 +79,12 @@ private:
 public:
     double rotation;
 
+    Transform() = default;
+    Transform(const Transform& source) {
+        this->SetPosition(source.globalPosition);
+        this->rotation = source.rotation;
+    }
+
     void SetPosition(Vector2 position);
     void SetLocalPosition(Vector2 position);
 
@@ -215,7 +221,7 @@ public:
 
 class PolygonCollider : public Collider {
 public:
-    Polygon polygon;
+    Polygon __polygon;
 
     /*
      * Set polygon
@@ -225,7 +231,7 @@ public:
         if ( !polygon.isConvex() )
             return false;
 
-        this->polygon.setVertex(
+        this->__polygon.setVertex(
                 polygon.vertex,
                 polygon.vertex_counts
                 );
@@ -233,7 +239,7 @@ public:
     }
     
     ColliderTag getColliderTag() const override {
-        return COLTAG_Box;
+        return COLTAG_Polygon;
     };
 };
 

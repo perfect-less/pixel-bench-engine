@@ -862,11 +862,6 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
 
                 coll_1.collider->setManifold(manifold);
                 coll_2->collider->setManifold(manifold);
-
-                if ( is_body_1_the_ref )
-                    coll_2->collider->getManifold().flipNormal();
-                else
-                    coll_1.collider->getManifold().flipNormal();
                 
                 coll_1.collider->__triggerOnBodyLeave();
                 coll_2->collider->__triggerOnBodyLeave();
@@ -957,8 +952,63 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                     }
                 case COLTAG_Polygon:
                     {
+                    PolygonCollider* poly_coll = static_cast<PolygonCollider*>(coll);
+                    if ( poly_coll->getManifold().point_count > 0 ) {
+                        SDL_SetRenderDrawColorFloat(
+                                renderContext->renderer,
+                                1.0, 0.0, 0.0, 1.0
+                                );
+                    }
+                    else {
+                        SDL_SetRenderDrawColorFloat(
+                                renderContext->renderer,
+                                0.0, 1.0, 0.0, 1.0
+                                );
+                    }
+                    SDL_FPoint points[MAX_POLYGON_VERTEX+1];
+                    for (int i=0; i<poly_coll->__polygon.vertex_counts; ++i) {
+                        const Vector2 vert = poly_coll->__polygon.getVertex(
+                                i,
+                                poly_coll->__transform.GlobalPosition(),
+                                poly_coll->__transform.rotation
+                                );
+                        points[i] = { vert.x, vert.y };
+                        if ( i == 0 ) {
+                            points[poly_coll->__polygon.vertex_counts] = { vert.x, vert.y };
+                        }
+                    }
+                    SDL_RenderLines(
+                            renderContext->renderer,
+                            points,
+                            poly_coll->__polygon.vertex_counts+1);
+                    // manifold
+                    CollisionManifold& manifold = poly_coll->getManifold();
+                    for (int i=0; i<manifold.point_count; ++i) {
+                        Vector2 contact = manifold.points[i];
+
+                        SDL_SetRenderDrawColorFloat(
+                                renderContext->renderer,
+                                0.0, 0.0, 1.0, 1.0
+                                );
+                        phydebDrawCross(
+                                renderContext->renderer,
+                                &contact
+                                );
+                        // normals
+                        SDL_SetRenderDrawColorFloat(
+                                renderContext->renderer,
+                                0.0, 1.0, 0.5, 1.0);
+                        SDL_RenderLine(
+                                renderContext->renderer,
+                                contact.x, contact.y,
+                                contact.x + manifold.normal.x * 32.0,
+                                contact.y + manifold.normal.y * 32.0
+                                );
+                    }
+
                     break;
                     }
+
             }
         }
     }

@@ -6,6 +6,11 @@
 #include "pixbench/physics.h"
 
 
+int imod(int a, int b) {
+    return (a % b + b) % b;
+}
+
+
 double projectPointToLineCoordinate(
         Vector2 point,
         Vector2 line_origin,
@@ -238,7 +243,7 @@ bool boxToBoxCollision(BoxCollider* box_1, BoxCollider* box_2, CollisionManifold
     // incident edge clipping, obtaining manifold
 
     // left clip
-    const Edge left_edge = ref_edges[(ref_edge_index+1) % 4];
+    const Edge left_edge = ref_edges[imod((ref_edge_index+1), 4)];
     Vector2 inc_points[2] = { inc_edge.p1, inc_edge.p2 };
     for (int i=0; i<2; ++i) {
         if ( Vector2::dotProduct(inc_points[i] - left_edge.p1, left_edge.normal) < 0.0 )
@@ -255,7 +260,7 @@ bool boxToBoxCollision(BoxCollider* box_1, BoxCollider* box_2, CollisionManifold
     }
 
     // right clip
-    const Edge right_edge = ref_edges[(ref_edge_index-1) % 4];
+    const Edge right_edge = ref_edges[imod((ref_edge_index-1), 4)];
     for (int i=0; i<2; ++i) {
         if ( Vector2::dotProduct(inc_points[i] - right_edge.p1, right_edge.normal) < 0.0 )
             continue;
@@ -295,7 +300,16 @@ bool boxToCircleCollision(BoxCollider* box, CircleCollider* circle, CollisionMan
 }
 
 bool boxToPolygonCollision(BoxCollider* box, PolygonCollider* polygon, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
-    return false;
+    PolygonCollider poly_1;
+    poly_1.setPolygon(box->__polygon);
+    poly_1.__transform = box->__transform;
+    const bool is_colliding = polygonToPolygonCollision(
+            &poly_1,
+            polygon,
+            manifold__out,
+            is_body_1_the_ref
+            );
+    return is_colliding;
 }
 
 
@@ -314,15 +328,15 @@ Edge __b1_edges_buff[MAX_POLYGON_VERTEX];
 Edge __b2_edges_buff[MAX_POLYGON_VERTEX];
 bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* polygon_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
     // rotated vertex and edges
-    size_t b1_verts_count = polygon_1->polygon.vertex_counts;
-    size_t b2_verts_count = polygon_2->polygon.vertex_counts;
+    size_t b1_verts_count = polygon_1->__polygon.vertex_counts;
+    size_t b2_verts_count = polygon_2->__polygon.vertex_counts;
     for (int i=0; i<b1_verts_count; ++i) {
-        __b1_verts_buff[i] = polygon_1->polygon.getVertex(
+        __b1_verts_buff[i] = polygon_1->__polygon.getVertex(
                 i,
                 polygon_1->__transform.GlobalPosition(),
                 polygon_1->__transform.rotation
                 );
-        __b1_edges_buff[i] = polygon_1->polygon.getEdge(
+        __b1_edges_buff[i] = polygon_1->__polygon.getEdge(
                 i,
                 polygon_1->__transform.GlobalPosition(),
                 polygon_1->__transform.rotation
@@ -330,62 +344,52 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
     }
 
     for (int i=0; i<b2_verts_count; ++i) {
-        __b2_verts_buff[i] = polygon_2->polygon.getVertex(
+        __b2_verts_buff[i] = polygon_2->__polygon.getVertex(
                 i,
                 polygon_2->__transform.GlobalPosition(),
                 polygon_2->__transform.rotation
                 );
-        __b2_edges_buff[i] = polygon_2->polygon.getEdge(
+        __b2_edges_buff[i] = polygon_2->__polygon.getEdge(
                 i,
                 polygon_2->__transform.GlobalPosition(),
                 polygon_2->__transform.rotation
                 );
     }
+
+    enum BODY {
+        BODY_1,
+        BODY_2
+    };
 
     // separating axis checks
-    Vector2* least_vertex_verts;
-    Edge* least_vertex_edges;
-    Vector2* most_vertex_verts;
-    Edge* most_vertex_edges;
+    Vector2* ref_vertex_verts;
+    Edge* ref_vertex_edges;
+    Vector2* opp_vertex_verts;
+    Edge* opp_vertex_edges;
     Vector2 opposing_body_centroid;
 
-    size_t least_vertex_count;
-    size_t most_vertex_count;
-    if (b1_verts_count < b2_verts_count) {
-        least_vertex_verts = __b1_verts_buff;
-        least_vertex_edges = __b1_edges_buff;
-        most_vertex_verts = __b2_verts_buff;
-        most_vertex_edges = __b2_edges_buff;
+    size_t ref_vertex_count;
+    size_t opp_vertex_count;
+    ref_vertex_verts = __b1_verts_buff;
+    ref_vertex_edges = __b1_edges_buff;
+    opp_vertex_verts = __b2_verts_buff;
+    opp_vertex_edges = __b2_edges_buff;
 
-        least_vertex_count = b1_verts_count;
-        most_vertex_count = b2_verts_count;
+    ref_vertex_count = b1_verts_count;
+    opp_vertex_count = b2_verts_count;
 
-        opposing_body_centroid = polygon_2->polygon.getCentroid(
-                polygon_2->__transform.GlobalPosition(),
-                polygon_2->__transform.rotation
-                );
-    }
-    else {
-        least_vertex_verts = __b2_verts_buff;
-        least_vertex_edges = __b2_edges_buff;
-        most_vertex_verts = __b1_verts_buff;
-        most_vertex_edges = __b1_edges_buff;
-
-        least_vertex_count = b2_verts_count;
-        most_vertex_count = b1_verts_count;
-
-        opposing_body_centroid = polygon_1->polygon.getCentroid(
-                polygon_1->__transform.GlobalPosition(),
-                polygon_1->__transform.rotation
-                );
-    }
+    opposing_body_centroid = polygon_2->__polygon.getCentroid(
+            polygon_2->__transform.GlobalPosition(),
+            polygon_2->__transform.rotation
+            );
 
     int penetration_counts = 0;
-    int min_penetration_edge_index;
+    int min_penetration_edge_index = 0;
     double min_penetration_depth;
+    BODY min_penetration_body = BODY::BODY_1;
 
-    for (int i=0; i<least_vertex_count; ++i) {
-        const Edge edge = least_vertex_edges[i];
+    for (int i=0; i<ref_vertex_count; ++i) { // body 1 as ref
+        const Edge edge = ref_vertex_edges[i];
 
         // check edge direction, ignore edge pointing away from b2
         if ( Vector2::dotProduct(opposing_body_centroid - edge.p1, edge.normal) < 0.0 ) {
@@ -398,9 +402,9 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
         float bo_max;
 
         // project to edge
-        for (int j=0; j<least_vertex_count; ++j) {
+        for (int j=0; j<ref_vertex_count; ++j) {
             const float projected_ref = projectPointToLineCoordinate(
-                    least_vertex_verts[j],
+                    ref_vertex_verts[j],
                     edge.p1,
                     edge.normal
                     );
@@ -412,9 +416,9 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
             br_max = std::max(projected_ref, br_max);
         }
 
-        for (int j=0; j<most_vertex_count; ++j) {
+        for (int j=0; j<opp_vertex_count; ++j) {
             const float projected_op = projectPointToLineCoordinate(
-                    most_vertex_verts[j],
+                    opp_vertex_verts[j],
                     edge.p1,
                     edge.normal
                     );
@@ -438,9 +442,85 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
             return false;
         }
 
-        if (i == 0 || (penetration_depth < min_penetration_depth)) {
+        if (penetration_counts == 0 || (penetration_depth < min_penetration_depth)) {
             min_penetration_depth = penetration_depth;
             min_penetration_edge_index = i;
+            min_penetration_body = BODY::BODY_1;
+        }
+        penetration_counts++;
+    }
+
+    ref_vertex_verts = __b2_verts_buff;
+    ref_vertex_edges = __b2_edges_buff;
+    opp_vertex_verts = __b1_verts_buff;
+    opp_vertex_edges = __b1_edges_buff;
+
+    ref_vertex_count = b2_verts_count;
+    opp_vertex_count = b1_verts_count;
+
+    opposing_body_centroid = polygon_1->__polygon.getCentroid(
+            polygon_1->__transform.GlobalPosition(),
+            polygon_1->__transform.rotation
+            );
+
+     for (int i=0; i<ref_vertex_count; ++i) { // body 2 as ref
+        const Edge edge = ref_vertex_edges[i];
+
+        // check edge direction, ignore edge pointing away from b2
+        if ( Vector2::dotProduct(opposing_body_centroid - edge.p1, edge.normal) < 0.0 ) {
+            continue;
+        }
+
+        float br_min;
+        float br_max;
+        float bo_min;
+        float bo_max;
+
+        // project to edge
+        for (int j=0; j<ref_vertex_count; ++j) {
+            const float projected_ref = projectPointToLineCoordinate(
+                    ref_vertex_verts[j],
+                    edge.p1,
+                    edge.normal
+                    );
+            if (j == 0) {
+                br_min = projected_ref;
+                br_max = projected_ref;
+            }
+            br_min = std::min(projected_ref, br_min);
+            br_max = std::max(projected_ref, br_max);
+        }
+
+        for (int j=0; j<opp_vertex_count; ++j) {
+            const float projected_op = projectPointToLineCoordinate(
+                    opp_vertex_verts[j],
+                    edge.p1,
+                    edge.normal
+                    );
+            if (j == 0) {
+                bo_min = projected_op;
+                bo_max = projected_op;
+            }
+            bo_min = std::min(projected_op, bo_min);
+            bo_max = std::max(projected_op, bo_max);
+        }
+
+        // collission depth
+        const float br_projected_length = br_max - br_min;
+        const float bo_projected_length = bo_max - bo_min;
+        const float combined_length = std::max(br_max, bo_max) - std::min(br_min, bo_min);
+        const float penetration_depth = (br_projected_length + bo_projected_length)
+            - combined_length
+            ;
+
+        if (penetration_depth < 0.0) {
+            return false;
+        }
+
+        if (penetration_counts == 0 || (penetration_depth < min_penetration_depth)) {
+            min_penetration_depth = penetration_depth;
+            min_penetration_edge_index = i;
+            min_penetration_body = BODY::BODY_2;
         }
         penetration_counts++;
     }
@@ -449,14 +529,30 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
         return false;
     }
 
+    // reframe based on min penetration body 
+    if (min_penetration_body == BODY::BODY_1) {
+        ref_vertex_verts = __b1_verts_buff;
+        ref_vertex_edges = __b1_edges_buff;
+        opp_vertex_verts = __b2_verts_buff;
+        opp_vertex_edges = __b2_edges_buff;
+
+        ref_vertex_count = b1_verts_count;
+        opp_vertex_count = b2_verts_count;
+
+        opposing_body_centroid = polygon_2->__polygon.getCentroid(
+                polygon_2->__transform.GlobalPosition(),
+                polygon_2->__transform.rotation
+                );
+    }
+
     // opposing edge determination, the most opposed to min_penetration_edge's normal
     size_t min_projected_index = 0;
     double min_projected_normal;
-    for (int i=0; i<most_vertex_count; ++i) {
+    for (int i=0; i<opp_vertex_count; ++i) {
         const double projected_op_normal = projectPointToLineCoordinate(
-                most_vertex_edges[i].normal,
+                opp_vertex_edges[i].normal,
                 Vector2::ZERO,
-                least_vertex_edges[min_penetration_edge_index].normal
+                ref_vertex_edges[min_penetration_edge_index].normal
                 );
         if (i != 0 && projected_op_normal >= min_projected_normal)
             continue;
@@ -466,51 +562,51 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
     }
 
     // reference edge determination, by which produce minimum penetration depth
-    const double edge_l_penetration_depth = projectedPenetration(
-            least_vertex_verts, least_vertex_count,
-            most_vertex_verts, most_vertex_count,
-            least_vertex_edges[min_penetration_edge_index]
+    const double ref_edge_penetration_depth = projectedPenetration(
+            ref_vertex_verts, ref_vertex_count,
+            opp_vertex_verts, opp_vertex_count,
+            ref_vertex_edges[min_penetration_edge_index]
             );
-    const double edge_m_penetration_depth = projectedPenetration(
-            least_vertex_verts, least_vertex_count,
-            most_vertex_verts, most_vertex_count,
-            most_vertex_edges[min_projected_index]
+    const double opp_edge_penetration_depth = projectedPenetration(
+            ref_vertex_verts, ref_vertex_count,
+            opp_vertex_verts, opp_vertex_count,
+            opp_vertex_edges[min_projected_index]
             );
 
     double ref_penetration_depth;
     Edge* ref_edge, inc_edge;
     Edge* ref_edges;
     int ref_edge_index, ref_edge_count;
-    if (edge_l_penetration_depth < edge_m_penetration_depth) {
-        ref_edges = least_vertex_edges;
-        ref_penetration_depth = edge_l_penetration_depth;
+    if (ref_edge_penetration_depth < opp_edge_penetration_depth) {
+        ref_edges = ref_vertex_edges;
+        ref_penetration_depth = ref_edge_penetration_depth;
         ref_edge_index = min_penetration_edge_index;
-        ref_edge_count = least_vertex_count;
+        ref_edge_count = ref_vertex_count;
         ref_edge = &ref_edges[ref_edge_index];
-        inc_edge = most_vertex_edges[min_projected_index];
+        inc_edge = opp_vertex_edges[min_projected_index];
     }
     else {
-        ref_edges = most_vertex_edges;
-        ref_penetration_depth = edge_m_penetration_depth;
+        ref_edges = opp_vertex_edges;
+        ref_penetration_depth = opp_edge_penetration_depth;
         ref_edge_index = min_projected_index;
-        ref_edge_count = most_vertex_count;
+        ref_edge_count = opp_vertex_count;
         ref_edge = &ref_edges[ref_edge_index];
-        inc_edge = least_vertex_edges[min_penetration_edge_index];
+        inc_edge = ref_vertex_edges[min_penetration_edge_index];
     }
 
     // incident edge clipping
     Vector2 inc_points[2] = { inc_edge.p1, inc_edge.p2 };
 
     // left clip
-    const Edge left_ref_edge = ref_edges[(ref_edge_index+1)%ref_edge_count];
+    const Edge left_ref_edge = ref_edges[imod((ref_edge_index+1), ref_edge_count)];
     for (int i=0; i<2; ++i) {
         if ( Vector2::dotProduct(inc_points[i] - left_ref_edge.p1, left_ref_edge.normal) < 0.0 )
             continue;
 
         // clip
         Vector2 clipped_point = intersectionBetween2Line(
-                inc_points[0],
-                inc_points[1],
+                inc_edge.p1,
+                inc_edge.p2,
                 left_ref_edge.p1,
                 left_ref_edge.p2
                 );
@@ -518,15 +614,15 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
     }
 
     // right clip
-    const Edge right_ref_edge = ref_edges[(ref_edge_index+1)%ref_edge_count];
+    const Edge right_ref_edge = ref_edges[imod((ref_edge_index-1), ref_edge_count)];
     for (int i=0; i<2; ++i) {
         if ( Vector2::dotProduct(inc_points[i] - right_ref_edge.p1, right_ref_edge.normal) < 0.0 )
             continue;
 
         // clip
         Vector2 clipped_point = intersectionBetween2Line(
-                inc_points[0],
-                inc_points[1],
+                inc_edge.p1,
+                inc_edge.p2,
                 right_ref_edge.p1,
                 right_ref_edge.p2
                 );
