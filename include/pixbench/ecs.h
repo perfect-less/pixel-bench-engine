@@ -1237,13 +1237,25 @@ public:
 class PhysicsSystem : public ISystem {
 private:
     std::bitset<MAX_COMPONENTS> m_physics_components_mask;
+    size_t m_collisions_count[MAX_ENTITIES];
+    EntityID m_entities_with_collider[MAX_ENTITIES];
+    size_t m_num_entities_with_collider{ 0 };
+    CollisionManifoldStorage m_manifolds;
 public:
     PhysicsSystem();
+
+    bool isPairColliding(EntityID ent_a, EntityID ent_b);
+    bool isEntityColliding(EntityID ent_id);
+    CollisionManifold* getCollisionPair(EntityID ent_a, EntityID ent_b);
+    std::vector<CollisionManifold*> getEntityCollisionManifolds(EntityID ent_id);
+    void setCollisionPair(EntityID ent_a, EntityID ent_b, CollisionManifold* manifold);
+    void removeCollisionPair(EntityID ent_a, EntityID ent_b);
 
     Result<VoidResult, GameError> Initialize(Game* game, EntityManager* entity_mgr) override;
     Result<VoidResult, GameError> FixedUpdate(double delta_time_s, EntityManager* entity_mgr) override; // Physics update
     Result<VoidResult, GameError> OnComponentRegistered(const ComponentDataPayload* component_info) override;
     Result<VoidResult, GameError> Draw(RenderContext* renderContext, EntityManager* entity_mgr) override;
+    Result<VoidResult, GameError> OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id) override;
 };
 
 

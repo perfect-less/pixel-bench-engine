@@ -9,8 +9,10 @@
 #include <algorithm>
 #include <bitset>
 #include <cmath>
+#include <cstddef>
 #include <iostream>
 #include <memory>
+#include <ostream>
 #include <vector>
 
 
@@ -673,10 +675,92 @@ Result<VoidResult, GameError> AudioSystem::LateUpdate(double delta_time_s, Entit
 
 PhysicsSystem::PhysicsSystem() {
     m_physics_components_mask.reset();
+    for (size_t i=0; i<MAX_ENTITIES; ++i) {
+        m_collisions_count[i] = 0;
+    }
+}
+
+
+bool PhysicsSystem::isPairColliding(EntityID ent_a, EntityID ent_b) {
+    return m_manifolds.isManifoldExist(ent_a.id, ent_b.id);
+}
+
+bool PhysicsSystem::isEntityColliding(EntityID ent_id) {
+    return m_collisions_count[ent_id.id] > 0;
+}
+
+CollisionManifold* PhysicsSystem::getCollisionPair(EntityID ent_a, EntityID ent_b) {
+    if ( !isPairColliding(ent_a, ent_b) )
+        return nullptr;
+
+    return m_manifolds.getManifold(ent_a.id, ent_b.id);
+}
+
+
+void PhysicsSystem::setCollisionPair(EntityID ent_a, EntityID ent_b, CollisionManifold* manifold) {
+    if ( !m_manifolds.isManifoldExist(ent_a.id, ent_b.id) ) {
+        m_collisions_count[ent_a.id] += 1;
+        m_collisions_count[ent_b.id] += 1;
+    }
+    CollisionManifold* _manifold = m_manifolds.getManifold(ent_a.id, ent_b.id);
+    *_manifold = *manifold;
+}
+
+
+void PhysicsSystem::removeCollisionPair(EntityID ent_a, EntityID ent_b) {
+    if ( !isPairColliding(ent_a, ent_b) ) {
+        return;
+    }
+
+    m_manifolds.removeManifoldPair(ent_a.id, ent_b.id);
+
+    if (m_collisions_count[ent_a.id] > 0)
+        m_collisions_count[ent_a.id]--;
+    if (m_collisions_count[ent_b.id] > 0)
+        m_collisions_count[ent_b.id]--;
+}
+
+std::vector<CollisionManifold*> PhysicsSystem::getEntityCollisionManifolds(EntityID ent_id) {
+     std::vector<CollisionManifold*> manifolds;
+     if ( !isEntityColliding(ent_id) )
+         return manifolds;
+
+     for (size_t i=0; i<m_num_entities_with_collider; ++i) {
+         EntityID ent_2 = m_entities_with_collider[i];
+         if ( ent_id.id == ent_2.id )
+             continue;
+
+         CollisionManifold* manifold = getCollisionPair(ent_id, ent_2);
+         if ( !manifold )
+             continue;
+
+         manifolds.push_back(manifold);
+     }
+
+     return manifolds;
 }
 
 
 Result<VoidResult, GameError> PhysicsSystem::Initialize(Game* game, EntityManager* entity_mgr) {
+    return ResultOK;
+}
+
+
+Result<VoidResult, GameError> PhysicsSystem::OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id) {
+    if ( !isEntityColliding(entity_id) )
+        return ResultOK;
+
+    for (size_t i=0; i<m_num_entities_with_collider; ++i) {
+        const EntityID entity_2 = m_entities_with_collider[i];
+        if ( entity_id.id == entity_2.id )
+            continue;
+
+        if ( !isPairColliding(entity_id, entity_2) )
+            continue;
+
+        removeCollisionPair(entity_id, entity_2);
+    }
+
     return ResultOK;
 }
 
@@ -705,6 +789,7 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
     colliders.reserve(MAX_ENTITIES); // set capacity to at least contains all entities
     
     // list all colliders
+    m_num_entities_with_collider = 0;
     for (size_t cindex=0; cindex<MAX_COMPONENTS; ++cindex) {
         if (!(this->m_physics_components_mask[cindex]))
             continue; // skip non-collider components
@@ -727,6 +812,9 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
             collider_object.collider = collider;
             collider_object.collider_tag = collider->getColliderTag();
             colliders.push_back(collider_object);
+
+            m_entities_with_collider[m_num_entities_with_collider] = ent_id;
+            ++m_num_entities_with_collider;
         }
     }
     
@@ -838,16 +926,21 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
             if ( is_colliding ) {
                 bool trigger_enter = false;
                 // if originally no collision happening between this 2 object
-                if ( coll_1.collider->getManifold().point_count == 0 )
+                // if ( coll_1.collider->getManifold().point_count == 0 )
+                //     trigger_enter = true;
+                if ( !isPairColliding(coll_1.entity, coll_2->entity) ) {
                     trigger_enter = true;
+                }
 
-                coll_1.collider->setManifold(manifold);
-                coll_2->collider->setManifold(manifold);
+                setCollisionPair(coll_1.entity, coll_2->entity, &manifold);
 
-                if ( is_body_1_the_ref )
-                    coll_2->collider->getManifold().flipNormal();
-                else
-                    coll_1.collider->getManifold().flipNormal();
+                // coll_1.collider->setManifold(manifold);
+                // coll_2->collider->setManifold(manifold);
+
+                // if ( is_body_1_the_ref )
+                //     coll_2->collider->getManifold().flipNormal();
+                // else
+                //     coll_1.collider->getManifold().flipNormal();
 
                 if ( trigger_enter ) {
                     coll_1.collider->__triggerOnBodyEnter();
@@ -857,11 +950,16 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
             // manifold points means there's collision
             else {
                 // if originally no collision happening between this 2 object
-                if ( coll_1.collider->getManifold().point_count == 0 )
+                // if ( coll_1.collider->getManifold().point_count == 0 )
+                //     continue;
+                if ( !isPairColliding(coll_1.entity, coll_2->entity) ) {
                     continue;
+                }
 
-                coll_1.collider->setManifold(manifold);
-                coll_2->collider->setManifold(manifold);
+                removeCollisionPair(coll_1.entity, coll_2->entity);
+
+                // coll_1.collider->setManifold(manifold);
+                // coll_2->collider->setManifold(manifold);
                 
                 coll_1.collider->__triggerOnBodyLeave();
                 coll_2->collider->__triggerOnBodyLeave();
@@ -901,7 +999,7 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                 case COLTAG_Box: 
                     {
                     BoxCollider* box_coll = static_cast<BoxCollider*>(coll);
-                    if ( box_coll->getManifold().point_count > 0 ) {
+                    if ( isEntityColliding(ent_id) ) {
                         SDL_SetRenderDrawColorFloat(
                                 renderContext->renderer,
                                 1.0, 0.0, 0.0, 1.0
@@ -930,18 +1028,20 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                             points,
                             5);
                     // manifold
-                    CollisionManifold& manifold = box_coll->getManifold();
-                    for (int i=0; i<manifold.point_count; ++i) {
-                        Vector2 contact = manifold.points[i];
+                    std::vector<CollisionManifold*> manifolds = getEntityCollisionManifolds(ent_id);
+                    for (CollisionManifold* manifold : manifolds) {
+                        for (int i=0; i<manifold->point_count; ++i) {
+                            Vector2 contact = manifold->points[i];
 
-                        SDL_SetRenderDrawColorFloat(
-                                renderContext->renderer,
-                                0.0, 0.0, 1.0, 1.0
-                                );
-                        phydebDrawCross(
-                                renderContext->renderer,
-                                &contact
-                                );
+                            SDL_SetRenderDrawColorFloat(
+                                    renderContext->renderer,
+                                    0.0, 0.0, 1.0, 1.0
+                                    );
+                            phydebDrawCross(
+                                    renderContext->renderer,
+                                    &contact
+                                    );
+                        }
                     }
 
                     break;
@@ -953,7 +1053,7 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                 case COLTAG_Polygon:
                     {
                     PolygonCollider* poly_coll = static_cast<PolygonCollider*>(coll);
-                    if ( poly_coll->getManifold().point_count > 0 ) {
+                    if ( isEntityColliding(ent_id) ) {
                         SDL_SetRenderDrawColorFloat(
                                 renderContext->renderer,
                                 1.0, 0.0, 0.0, 1.0
@@ -982,28 +1082,30 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                             points,
                             poly_coll->__polygon.vertex_counts+1);
                     // manifold
-                    CollisionManifold& manifold = poly_coll->getManifold();
-                    for (int i=0; i<manifold.point_count; ++i) {
-                        Vector2 contact = manifold.points[i];
+                    std::vector<CollisionManifold*> manifolds = getEntityCollisionManifolds(ent_id);
+                    for (CollisionManifold* manifold : manifolds) {
+                        for (int i=0; i<manifold->point_count; ++i) {
+                            Vector2 contact = manifold->points[i];
 
-                        SDL_SetRenderDrawColorFloat(
-                                renderContext->renderer,
-                                0.0, 0.0, 1.0, 1.0
-                                );
-                        phydebDrawCross(
-                                renderContext->renderer,
-                                &contact
-                                );
-                        // normals
-                        SDL_SetRenderDrawColorFloat(
-                                renderContext->renderer,
-                                0.0, 1.0, 0.5, 1.0);
-                        SDL_RenderLine(
-                                renderContext->renderer,
-                                contact.x, contact.y,
-                                contact.x + manifold.normal.x * 32.0,
-                                contact.y + manifold.normal.y * 32.0
-                                );
+                            SDL_SetRenderDrawColorFloat(
+                                    renderContext->renderer,
+                                    0.0, 0.0, 1.0, 1.0
+                                    );
+                            phydebDrawCross(
+                                    renderContext->renderer,
+                                    &contact
+                                    );
+                            // normals
+                            SDL_SetRenderDrawColorFloat(
+                                    renderContext->renderer,
+                                    0.0, 1.0, 0.5, 1.0);
+                            SDL_RenderLine(
+                                    renderContext->renderer,
+                                    contact.x, contact.y,
+                                    contact.x + manifold->normal.x * 32.0,
+                                    contact.y + manifold->normal.y * 32.0
+                                    );
+                        }
                     }
 
                     break;

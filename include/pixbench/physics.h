@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
+#include <unordered_map>
 
 
 class CollisionManifold {
@@ -26,6 +27,12 @@ public:
         penetration_depth(penetration_depth)
     {};
 
+    CollisionManifold(const CollisionManifold& source) {
+        this->normal = source.normal;
+        this->penetration_depth = source.penetration_depth;
+        this->setPoints(source.points, source.point_count);
+    }
+
     void setPoints(const Vector2 collision_points[], size_t counts) {
         if ( counts > 2 || counts <= 0 )
             return;
@@ -38,6 +45,53 @@ public:
 
     void flipNormal() {
         normal = normal * -1.0;
+    }
+};
+
+
+
+class CollisionManifoldStorage {
+private:
+    std::unordered_map<size_t, CollisionManifold> m_manifold_map;
+public:
+
+    CollisionManifoldStorage() {
+        m_manifold_map.reserve(MAX_ENTITIES*2);
+    }
+
+    size_t pairToHashIndex(size_t ent_a, size_t ent_b) {
+        if ( ent_b < ent_a ) {
+            const size_t temp_a = ent_a;
+            ent_a = ent_b;
+            ent_b = temp_a;
+        }
+
+        return ent_a*MAX_ENTITIES + ent_b;
+    }
+
+    bool isManifoldExist(size_t ent_a, size_t ent_b) {
+        const size_t hash_key = pairToHashIndex(ent_a, ent_b);
+        auto res_it = m_manifold_map.find(hash_key);
+        return ( res_it != m_manifold_map.end() );
+    }
+
+    CollisionManifold* getManifold(size_t ent_a, size_t ent_b) {
+        const size_t hash_index = pairToHashIndex(ent_a, ent_b);
+        auto res_it = m_manifold_map.find(hash_index);
+        if ( res_it != m_manifold_map.end() ) {
+            return &(res_it->second);
+        }
+
+        m_manifold_map[hash_index] = CollisionManifold();
+        return &(m_manifold_map[hash_index]);
+    }
+
+    void removeManifoldPair(size_t ent_a, size_t ent_b) {
+        if ( !isManifoldExist(ent_a, ent_b) )
+            return;
+
+        const size_t hash_key = pairToHashIndex(ent_a, ent_b);
+        m_manifold_map.erase(hash_key);
     }
 };
 
