@@ -317,7 +317,19 @@ bool circleToCircleCollision(CircleCollider* circle_1, CircleCollider* circle_2,
     return false;
 }
 
+double distancePointToInfiniteLine(Vector2 point, Vector2 line_p1, Vector2 line_p2) {
+    return 0.0;
+}
+
+double distancePointToTerminatedLine(Vector2 point, Vector2 line_p1, Vector2 line_p2) {
+    return 0.0;
+}
+
 bool circleToPolygonCollision(CircleCollider* circle, PolygonCollider* polygon, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
+
+    // collision happens when distance between circle's centroid and any of polygon's edges is less than or equal to circle's radius.
+
+
     return false;
 }
 
