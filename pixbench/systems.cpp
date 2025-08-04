@@ -926,21 +926,11 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
             if ( is_colliding ) {
                 bool trigger_enter = false;
                 // if originally no collision happening between this 2 object
-                // if ( coll_1.collider->getManifold().point_count == 0 )
-                //     trigger_enter = true;
                 if ( !isPairColliding(coll_1.entity, coll_2->entity) ) {
                     trigger_enter = true;
                 }
 
                 setCollisionPair(coll_1.entity, coll_2->entity, &manifold);
-
-                // coll_1.collider->setManifold(manifold);
-                // coll_2->collider->setManifold(manifold);
-
-                // if ( is_body_1_the_ref )
-                //     coll_2->collider->getManifold().flipNormal();
-                // else
-                //     coll_1.collider->getManifold().flipNormal();
 
                 if ( trigger_enter ) {
                     coll_1.collider->__triggerOnBodyEnter();
@@ -950,16 +940,11 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
             // manifold points means there's collision
             else {
                 // if originally no collision happening between this 2 object
-                // if ( coll_1.collider->getManifold().point_count == 0 )
-                //     continue;
                 if ( !isPairColliding(coll_1.entity, coll_2->entity) ) {
                     continue;
                 }
 
                 removeCollisionPair(coll_1.entity, coll_2->entity);
-
-                // coll_1.collider->setManifold(manifold);
-                // coll_2->collider->setManifold(manifold);
                 
                 coll_1.collider->__triggerOnBodyLeave();
                 coll_2->collider->__triggerOnBodyLeave();
