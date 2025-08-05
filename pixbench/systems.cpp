@@ -1100,6 +1100,63 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
         }
     }
 
+    // <<< BEGIN
+
+    const double point_width = 18.0;
+    Vector2 point = Vector2(246.0, 101.0);
+    Vector2 line_p1 = Vector2(300.0, 20.0);
+    Vector2 line_p2 = Vector2(400.0, 70.0);
+
+    SDL_SetRenderDrawColorFloat(
+            renderContext->renderer,
+            0.0, 0.0, 1.0, 1.0
+            );
+    SDL_RenderLine(
+            renderContext->renderer,
+            line_p1.x, line_p1.y, line_p2.x, line_p2.y
+            );
+
+
+    // point
+    SDL_SetRenderDrawColorFloat(
+            renderContext->renderer,
+            1.0, 0.0, 0.0, 1.0
+            );
+
+    SDL_RenderLine(
+            renderContext->renderer,
+            point.x - point_width/2, point.y - point_width/2,
+            point.x + point_width/2, point.y + point_width/2
+            );
+    SDL_RenderLine(
+            renderContext->renderer,
+            point.x + point_width/2, point.y - point_width/2,
+            point.x - point_width/2, point.y + point_width/2
+            );
+
+    Vector2 proj_point = projectPointToLine(
+            point, line_p1, line_p2
+            );
+    SDL_RenderLine(
+            renderContext->renderer,
+            proj_point.x - point_width/2, proj_point.y - point_width/2,
+            proj_point.x + point_width/2, proj_point.y + point_width/2
+            );
+    SDL_RenderLine(
+            renderContext->renderer,
+            proj_point.x + point_width/2, proj_point.y - point_width/2,
+            proj_point.x - point_width/2, proj_point.y + point_width/2
+            );
+
+    SDL_RenderLine(
+            renderContext->renderer,
+            point.x, point.y,
+            proj_point.x, proj_point.y
+            );
+
+
+    // END >>>
+
     return ResultOK;
 #endif
 

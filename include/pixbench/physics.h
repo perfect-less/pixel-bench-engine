@@ -210,6 +210,11 @@ bool circleToPolygonCollision(CircleCollider* circle, PolygonCollider* polygon, 
 bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* polygon_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
 
 
+// === Physics utility functions ===
+
+Vector2 projectPointToLine(Vector2 point, Vector2 line_p1, Vector2 line_p2);
+
+
 // === Physics Debug Drawing ===
 
 /*

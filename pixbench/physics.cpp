@@ -11,6 +11,21 @@ int imod(int a, int b) {
 }
 
 
+Vector2 projectPointToLine(Vector2 point, Vector2 line_p1, Vector2 line_p2) {
+    // find A, B, C of the line
+    const double a = (line_p2.y - line_p1.y)/(line_p2.x - line_p1.x);
+    const double b = -1;
+    const double c = (line_p1.y*line_p2.x - line_p2.y*line_p1.x)/(line_p2.x - line_p1.x);
+
+    // calculate xp and yp
+    const double denum = a*a + b*b;
+    const double xp = (b*b*point.x - a*b*point.y - c*a)/denum;
+    const double yp = (a*a*point.y - a*b*point.x - c*b)/denum;
+
+    return Vector2(xp, yp);
+}
+
+
 double projectPointToLineCoordinate(
         Vector2 point,
         Vector2 line_origin,
