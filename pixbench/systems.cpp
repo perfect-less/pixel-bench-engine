@@ -1033,6 +1033,61 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                     }
                 case COLTAG_Circle:
                     {
+                    CircleCollider* circ_coll = static_cast<CircleCollider*>(coll);
+                    Vector2 circ_pos = circ_coll->__transform.GlobalPosition();
+                    if ( isEntityColliding(ent_id) ) {
+                        SDL_SetRenderDrawColorFloat(
+                                renderContext->renderer,
+                                1.0, 0.0, 0.0, 1.0
+                                );
+                    }
+                    else {
+                        SDL_SetRenderDrawColorFloat(
+                                renderContext->renderer,
+                                0.0, 1.0, 0.0, 1.0
+                                );
+                    }
+                    const size_t point_counts = 16;
+                    SDL_FPoint circle_points[point_counts+1];
+                    for (int i=0; i<point_counts; i++) {
+                        const float xp = circ_coll->radius*std::cos(i*2.0*M_PI/point_counts);
+                        const float yp = circ_coll->radius*std::sin(i*2.0*M_PI/point_counts);
+                        circle_points[i] = { xp + circ_pos.x, yp + circ_pos.y };
+                     }
+                    circle_points[point_counts] = { circ_coll->radius + circ_pos.x, circ_pos.y };
+                    
+                    SDL_RenderPoint(renderContext->renderer, circ_pos.x, circ_pos.y);
+                    SDL_RenderLines(
+                            renderContext->renderer, circle_points, point_counts+1
+                            );
+
+                    // manifold
+                    std::vector<CollisionManifold*> manifolds = getEntityCollisionManifolds(ent_id);
+                    for (CollisionManifold* manifold : manifolds) {
+                        for (int i=0; i<manifold->point_count; ++i) {
+                            Vector2 contact = manifold->points[i];
+
+                            SDL_SetRenderDrawColorFloat(
+                                    renderContext->renderer,
+                                    0.0, 0.0, 1.0, 1.0
+                                    );
+                            phydebDrawCross(
+                                    renderContext->renderer,
+                                    &contact
+                                    );
+                            // normals
+                            SDL_SetRenderDrawColorFloat(
+                                    renderContext->renderer,
+                                    0.0, 1.0, 0.5, 1.0);
+                            SDL_RenderLine(
+                                    renderContext->renderer,
+                                    contact.x, contact.y,
+                                    contact.x + manifold->normal.x * 32.0,
+                                    contact.y + manifold->normal.y * 32.0
+                                    );
+                        }
+                    }
+                    
                     break;
                     }
                 case COLTAG_Polygon:

@@ -333,19 +333,88 @@ bool circleToCircleCollision(CircleCollider* circle_1, CircleCollider* circle_2,
 }
 
 double distancePointToInfiniteLine(Vector2 point, Vector2 line_p1, Vector2 line_p2) {
-    return 0.0;
+    return (projectPointToLine(point, line_p1, line_p2) - point).magnitude();
 }
 
-double distancePointToTerminatedLine(Vector2 point, Vector2 line_p1, Vector2 line_p2) {
-    return 0.0;
+double distancePointToTerminatedLine(Vector2 point, Vector2 line_p1, Vector2 line_p2, Vector2* out_minimum_point = nullptr) {
+    const float min_x = std::min(line_p1.x , line_p2.x);
+    const float max_x = std::max(line_p1.x , line_p2.x);
+    const float min_y = std::min(line_p1.y , line_p2.y);
+    const float max_y = std::max(line_p1.y , line_p2.y);
+
+    Vector2 proj_point = projectPointToLine(point, line_p1, line_p2);
+    if ( proj_point.x < min_x || proj_point.x > max_x || proj_point.y < min_y || proj_point.y > max_y ) { // if outside of bound-box
+        const double dist_to_p1 = (line_p1 - point).magnitude();
+        const double dist_to_p2 = (line_p2 - point).magnitude();
+
+        double min_dist = dist_to_p2;
+        Vector2 min_point = line_p2;
+        if (dist_to_p1 < dist_to_p2) {
+            min_dist = dist_to_p1;
+            min_point = line_p1;
+        }
+
+        if ( out_minimum_point ) {
+            *out_minimum_point = min_point;
+        }
+        return min_dist;
+    }
+
+    if ( out_minimum_point ) {
+        *out_minimum_point = proj_point;
+    }
+    return (proj_point - point).magnitude();
 }
 
 bool circleToPolygonCollision(CircleCollider* circle, PolygonCollider* polygon, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
 
     // collision happens when distance between circle's centroid and any of polygon's edges is less than or equal to circle's radius.
+    const Vector2 circ_pos = circle->__transform.GlobalPosition();
+    const Vector2 poly_pos = polygon->__transform.GlobalPosition();
+    const double poly_rot = polygon->__transform.rotation;
 
 
-    return false;
+    double max_penetration_depth;
+    size_t max_penetration_edge_index = 0;
+    Vector2 max_penetration_point;
+    size_t penetration_count = 0;
+    for (int i=0; i<polygon->__polygon.vertex_counts; ++i) {
+        const Edge edge = polygon->__polygon.getEdge(
+                i, poly_pos, poly_rot
+                );
+
+        Vector2 out__corresponding_point;
+        const double d = distancePointToTerminatedLine(
+                circ_pos,
+                edge.p1, edge.p2,
+                &out__corresponding_point
+                );
+
+        if ( d > circle->radius )
+            continue;
+
+        const double penetration_depth = circle->radius - d;
+        if ( penetration_count == 0 || (penetration_depth > max_penetration_depth) ) {
+            max_penetration_depth = penetration_depth;
+            max_penetration_edge_index = i;
+            max_penetration_point = out__corresponding_point;
+            penetration_count++;
+        }
+    }
+
+    if ( penetration_count == 0 )
+        return false;
+
+    // collision edge
+    const Vector2 normal = (max_penetration_point - circ_pos).normalized();
+    manifold__out->point_count = 1;
+    manifold__out->points[0] = max_penetration_point;
+    manifold__out->penetration_depth = max_penetration_depth;
+    manifold__out->normal = normal;
+
+    *is_body_1_the_ref = true;
+
+    return true;
 }
 
 

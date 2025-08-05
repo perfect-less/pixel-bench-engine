@@ -214,7 +214,7 @@ public:
     float radius = 16.0;            //!< circle collider radius
     
     ColliderTag getColliderTag() const override {
-        return COLTAG_Box;
+        return COLTAG_Circle;
     };
 };
 
