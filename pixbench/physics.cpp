@@ -2,6 +2,7 @@
 #include "pixbench/engine_config.h"
 #include "pixbench/vector2.h"
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include "pixbench/physics.h"
 
@@ -12,8 +13,13 @@ int imod(int a, int b) {
 
 
 Vector2 projectPointToLine(Vector2 point, Vector2 line_p1, Vector2 line_p2) {
+    // special case when m = inf
+    const double a_denum = (line_p2.x - line_p1.x);
+    if (a_denum == 0.0) {
+        return Vector2(line_p1.x, point.y);
+    }
     // find A, B, C of the line
-    const double a = (line_p2.y - line_p1.y)/(line_p2.x - line_p1.x);
+    const double a = (line_p2.y - line_p1.y)/a_denum;
     const double b = -1;
     const double c = (line_p1.y*line_p2.x - line_p2.y*line_p1.x)/(line_p2.x - line_p1.x);
 
@@ -311,7 +317,17 @@ bool boxToBoxCollision(BoxCollider* box_1, BoxCollider* box_2, CollisionManifold
 }
 
 bool boxToCircleCollision(BoxCollider* box, CircleCollider* circle, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
-    return false;
+    PolygonCollider poly_1;
+    poly_1.setPolygon(box->__polygon);
+    poly_1.__transform = box->__transform;
+    const bool is_colliding = circleToPolygonCollision(
+            circle,
+            &poly_1,
+            manifold__out,
+            is_body_1_the_ref
+            );
+    *is_body_1_the_ref = !(*is_body_1_the_ref);
+    return is_colliding;
 }
 
 bool boxToPolygonCollision(BoxCollider* box, PolygonCollider* polygon, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
@@ -375,15 +391,14 @@ bool circleToPolygonCollision(CircleCollider* circle, PolygonCollider* polygon, 
 
 
     double max_penetration_depth;
-    size_t max_penetration_edge_index = 0;
     Vector2 max_penetration_point;
     size_t penetration_count = 0;
-    for (int i=0; i<polygon->__polygon.vertex_counts; ++i) {
+    for (size_t i=0; i<(polygon->__polygon.vertex_counts); ++i) {
         const Edge edge = polygon->__polygon.getEdge(
                 i, poly_pos, poly_rot
                 );
 
-        Vector2 out__corresponding_point;
+        Vector2 out__corresponding_point = Vector2(100.0, 100.0);
         const double d = distancePointToTerminatedLine(
                 circ_pos,
                 edge.p1, edge.p2,
@@ -396,7 +411,6 @@ bool circleToPolygonCollision(CircleCollider* circle, PolygonCollider* polygon, 
         const double penetration_depth = circle->radius - d;
         if ( penetration_count == 0 || (penetration_depth > max_penetration_depth) ) {
             max_penetration_depth = penetration_depth;
-            max_penetration_edge_index = i;
             max_penetration_point = out__corresponding_point;
             penetration_count++;
         }
