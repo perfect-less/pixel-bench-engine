@@ -1,0 +1,6 @@
+option(
+  'demo',
+  type : 'string',
+  value : '',
+  description : 'Name of demo to build (leave empty to build `game/`)'
+  )

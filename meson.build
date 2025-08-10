@@ -10,6 +10,9 @@ project(
     ]
   )
 
+# Imports
+fs = import('fs')
+
 # Includes and dependencies
 engine_includes = [include_directories('include/')]
 sdl3_dep = dependency('sdl3')
@@ -35,7 +38,19 @@ sources = []
 
 # Subdir inclusions
 subdir('test/')  # unit tests
-subdir('src/')   # game sources
+
+# Handle game subdir, compile demo if demo is set using -Ddemo=<demo-name>
+demo_name = get_option('demo')
+if demo_name == ''
+  subdir('src/')   # game sources
+else
+  demo_path = join_paths('demo', demo_name)
+  if fs.exists(join_paths(demo_path, 'meson.build'))
+    subdir(demo_path)   # demo sources
+  else
+    error('Demo "' + demo_name + '" does not exist')
+  endif
+endif
 
 # Game executable
 includes = engine_includes
