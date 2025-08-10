@@ -1,5 +1,8 @@
 #include "pixbench/ecs.h"
+#include "pixbench/physics.h"
 #include "pixbench/vector2.h"
+#include <cassert>
+#include <vector>
 
 
 void Transform::SetPosition(Vector2 position) {
@@ -113,4 +116,51 @@ int AudioPlayer::__setAssignedChannel(int channel) {
 
 void AudioPlayer::__resetNeedSyncStatus() {
     m_is_need_sync = false;
+}
+
+
+// ==================== Physics/Collider ====================
+
+
+bool Collider::isColliding() {
+    if ( !__physics_system )
+        return false;
+
+    return __physics_system->isEntityColliding(m_entity);
+}
+
+
+
+std::vector<CollisionEvent> Collider::getCollisionState() {
+    if ( !isColliding() )
+        return std::vector<CollisionEvent>();
+
+    assert(__physics_system != nullptr);
+
+    std::vector<CollisionEvent> coll_events = __physics_system->getEntityCollisionManifolds(m_entity);
+    return coll_events;
+}
+
+
+
+void Collider::__triggerOnBodyEnter(EntityID other_id) {
+    if ( !m_on_body_enter_callback )
+        return;
+
+    assert(__physics_system != nullptr);
+
+    CollisionManifoldStore* manifold_store = __physics_system->getCollisionPair(m_entity, other_id);
+    assert(manifold_store != nullptr);
+
+    CollisionManifold manifold = manifold_store->manifold;
+
+    CollisionEvent coll_event = CollisionEvent(other_id, manifold);
+    m_on_body_enter_callback(coll_event);
+}
+
+void Collider::__triggerOnBodyLeave(EntityID other_id) {
+    if ( !m_on_body_leave_callback )
+        return;
+
+    m_on_body_leave_callback(other_id);
 }

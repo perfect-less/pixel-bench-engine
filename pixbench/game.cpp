@@ -1,5 +1,6 @@
 #include "pixbench/game.h"
 #include "pixbench/ecs.h"
+#include "pixbench/engine_config.h"
 #include "pixbench/utils.h"
 #include "pixbench/vector2.h"
 #include "SDL3_mixer/SDL_mixer.h"
@@ -73,6 +74,16 @@ Result<VoidResult, GameError> Game::Initialize() {
         return res;
 
     this->entityManager = new EntityManager();
+    this->entityManager->setComponentAddedToEntityCallback(
+            [this] (ComponentTag ctag, ComponentType ctype, size_t cindex, EntityID ent_id)
+            {
+            ComponentDataPayload payload;
+            payload.ctag = ctag;
+            payload.ctype = ctype;
+            payload.cindex = cindex;
+            this->OnComponentAddedToEntity(payload, ent_id);
+            }
+            );
     this->entityManager->setComponentRegisterCallback(
             [this] (ComponentTag ctag, ComponentType ctype, size_t cindex) 
             {
@@ -93,6 +104,7 @@ Result<VoidResult, GameError> Game::Initialize() {
     this->scriptSystem = std::make_shared<ScriptSystem>();
     this->ecs_systems.push_back(std::make_shared<RenderingSystem>());
     this->ecs_systems.push_back(std::make_shared<AudioSystem>());
+    this->ecs_systems.push_back(std::make_shared<PhysicsSystem>());
     this->ecs_systems.push_back(scriptSystem);
 
     this->isRunning = true;
@@ -174,6 +186,13 @@ void Game::OnComponentRegistered(ComponentDataPayload component_payload) {
 }
 
 
+void Game::OnComponentAddedToEntity(ComponentDataPayload component_payload, EntityID entity_id) {
+    for (auto& system : this->ecs_systems) {
+        system->OnComponentAddedToEntity(&component_payload, entity_id);
+    }
+}
+
+
 void Game::OnEntityDestroyed(EntityID entity_id) {
     for (auto& system : this->ecs_systems) {
         system->OnEntityDestroyed(this->entityManager, entity_id);
@@ -188,7 +207,7 @@ Result<VoidResult, GameError> Game::OnEvent(SDL_Event *event) {
     //     this->Quit();
     // }
 
-    double lastTicks = this->lastTicksNS;
+    double lastTicks = this->lastTicksU__ns;
 
     // Let the system handle the event
     for (auto& system : this->ecs_systems) {
@@ -202,7 +221,7 @@ Result<VoidResult, GameError> Game::OnEvent(SDL_Event *event) {
 
 Result<VoidResult, GameError> Game::Itterate() {
     double now_ns = ((double)SDL_GetTicksNS());
-    double delta_time_s = (now_ns - this->lastTicksNS) / 1000000000.0;
+    double delta_time_s = (now_ns - this->lastTicksU__ns) / 1000000000.0;
 
     // std::cout << "Game::Itterate called (" << delta_time_s << ")" << std::endl;
 
@@ -225,26 +244,37 @@ Result<VoidResult, GameError> Game::Itterate() {
             return res;
         }
     }
+    this->lastTicksU__ns = now_ns;
 
     // TO DO: FixedUpdate cascade, `while update is due`
-    for (auto& system : this->ecs_systems) {
-        res = system->FixedUpdate(delta_time_s, this->entityManager);
-        if ( !res.isOk() ) {
-            return res;
+    // while (not is_deadline_been_made()) {
+    //      FixedUpdate();
+    // }
+    while ( this->lastTicksFU__ns < now_ns ) {
+        delta_time_s = 1.0/((double)FIXED_UPDATE_RATE);
+
+        for (auto& system : this->ecs_systems) {
+            res = system->FixedUpdate(delta_time_s, this->entityManager);
+            if ( !res.isOk() ) {
+                return res;
+            }
         }
+
+        now_ns = ((double)SDL_GetTicksNS());
+        this->lastTicksFU__ns += delta_time_s*1000000000.0;
     }
 
     // TO DO: LateUpdate cascade
     now_ns = ((double)SDL_GetTicksNS());
-    delta_time_s = (now_ns - this->lastTicksNS) / 1000000000.0;
+    delta_time_s = (now_ns - this->lastTicksLU__ns) / 1000000000.0;
     for (auto& system : this->ecs_systems) {
         res = system->LateUpdate(delta_time_s, this->entityManager);
         if ( !res.isOk() ) {
             return res;
         }
     }
+    this->lastTicksLU__ns = now_ns;
 
-    // TO DO: Handle nodes destruction
 
     bool is_success;
 
@@ -309,7 +339,6 @@ Result<VoidResult, GameError> Game::Itterate() {
                 );
     }
 
-    this->lastTicksNS = now_ns;
 
     return ResultOK;
 }

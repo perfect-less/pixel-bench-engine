@@ -94,7 +94,9 @@ public:
     std::shared_ptr<ISystem> scriptSystem = nullptr;    //!< script system
     std::vector<std::shared_ptr<ISystem>> ecs_systems;  //!< array of systems in ECS
 
-    double lastTicksNS = 0;                     //!< used to keep tracks of game ticks
+    double lastTicksU__ns = 0;                  //!< used to keep tracks of game Update ticks
+    double lastTicksFU__ns = 0;                 //!< used to keep tracks of game FixedUpdate ticks
+    double lastTicksLU__ns = 0;                 //!< used to keep tracks of game LateUpdate ticks
     bool isRunning = false;                     //!< Reflecting the status of whether the game is currently running or not
     
     /**
@@ -220,9 +222,16 @@ public:
     /**
      * Callback called when a new Component type is registered to ComponentManager
      *
-     * Read more on: `EntityManager::setOnEntityDestroyedCallback`
+     * Read more on: `EntityManager::setComponentRegisterCallback`
      */
     void OnComponentRegistered(ComponentDataPayload component_payload);
+
+    /**
+     * Callback called when a Component is added to an entity
+     *
+     * Read more on: `EntityManager::setComponentAddedToEntityCallback`
+     */
+    void OnComponentAddedToEntity(ComponentDataPayload component_payload, EntityID entity_id);
 
     /**
      * Callback called when an entity will be destroyed.
