@@ -13,10 +13,13 @@ int imod(int a, int b) {
 
 
 Vector2 projectPointToLine(Vector2 point, Vector2 line_p1, Vector2 line_p2) {
-    // special case when m = inf
+    // special case when m = inf or m = 0
     const double a_denum = (line_p2.x - line_p1.x);
     if (a_denum == 0.0) {
         return Vector2(line_p1.x, point.y);
+    }
+    if (line_p1.y == line_p2.y) {
+        return Vector2(point.x, line_p1.y);
     }
     // find A, B, C of the line
     const double a = (line_p2.y - line_p1.y)/a_denum;
