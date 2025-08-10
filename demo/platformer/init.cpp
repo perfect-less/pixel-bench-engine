@@ -1,9 +1,6 @@
 #include "pixbench/ecs.h"
 #include "pixbench/game.h"
-#include "pixbench/renderer.h"
-#include "pixbench/resource.h"
-#include "pixbench/utils.h"
-#include "pixbench/vector2.h"
+#include "pixbench/utils/utils.h"
 #include "include/chars.h"
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_joystick.h>
@@ -11,10 +8,8 @@
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_scancode.h>
 #include <SDL3/SDL_surface.h>
-#include <algorithm>
 #include <cstdlib>
 #include <iostream>
-#include <memory>
 #include <ostream>
 #include <string>
 
