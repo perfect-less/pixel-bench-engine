@@ -7,6 +7,12 @@
 #include "pixbench/physics.h"
 
 
+enum BODY {
+    BODY_1,
+    BODY_2
+};
+
+
 int imod(int a, int b) {
     return (a % b + b) % b;
 }
@@ -151,16 +157,26 @@ bool boxToBoxCollision(BoxCollider* box_1, BoxCollider* box_2, CollisionManifold
         b2_edges[i] = box_2->__polygon.getEdge(i, box_2->__transform.GlobalPosition(), box_2->__transform.rotation);
     }
 
-    double penetration_edge_indexes[4];
-    double penetration_depths[4];
+    BODY min_penetration_body = BODY_1;
+    double min_penetration_depth;
+    int min_penetration_edge_index = 0;
     int penetration_counts = 0;
 
     // edge loop
-    for (int i=0; i<4; ++i) {
-        const Edge edge = b1_edges[i];
+    for (int _i=0; _i<4*2; ++_i) {
+        int i = _i;
+        Edge edge;
+        Vector2 opp_pos = box_2->__transform.GlobalPosition();
+        if (_i >= 4) {
+            i = _i % 4;
+            edge = b2_edges[i];
+            opp_pos = box_1->__transform.GlobalPosition();
+        } else {
+            edge = b1_edges[i];
+        }
 
         // check edge direction, ignore edge pointing away from b2
-        if ( Vector2::dotProduct(box_2->__transform.GlobalPosition() - edge.p1, edge.normal) < 0.0 ) {
+        if ( Vector2::dotProduct(opp_pos - edge.p1, edge.normal) < 0.0 ) {
             continue;
         }
 
@@ -207,62 +223,42 @@ bool boxToBoxCollision(BoxCollider* box_1, BoxCollider* box_2, CollisionManifold
             return false;
         }
 
-        penetration_edge_indexes[penetration_counts] = i;
-        penetration_depths[penetration_counts] = penetration_depth;
-        penetration_counts++;
+        if (penetration_counts == 0 || (penetration_depth < min_penetration_depth)) {
+            min_penetration_depth = penetration_depth;
+            min_penetration_edge_index = i;
+            ++penetration_counts;
+            if (_i >= 4)
+                min_penetration_body = BODY_2;
+        }
     }
 
     if (penetration_counts == 0) {
         return false;
     }
 
-    // minimum depth edge
-    double min_depth = penetration_depths[0];
-    int min_b1_edge_index = penetration_edge_indexes[0];
-    for (int i=1; i<penetration_counts; ++i) {
-        if ( penetration_depths[i] >= min_depth )
-            continue;
-
-        min_depth = penetration_depths[i];
-        min_b1_edge_index = penetration_edge_indexes[i];
-    }
-    const Edge b1_collision_edge = b1_edges[min_b1_edge_index];
+    BODY ref_body = min_penetration_body;
+    int ref_edge_index = min_penetration_edge_index;
+    double ref_penetration_depth = min_penetration_depth;
+    Edge ref_edge = (ref_body == BODY_1) ? b1_edges[min_penetration_edge_index] : b2_edges[min_penetration_edge_index];
+    Edge* ref_edges = (ref_body == BODY_1) ? b1_edges : b2_edges;
+    Edge* inc_edges = (ref_body == BODY_1) ? b2_edges : b1_edges;
 
     // other edge calculation
-    int min_b2_edge_index = 0;
-    double min_b2_edge_projected_normal = 1.0;
+    int min_opp_edge_index = 0;
+    double min_opp_edge_projected_normal = 1.0;
     for (int i=0; i<4; ++i) {
-        double projected_b2_normal = projectPointToLineCoordinate(
-                    b2_edges[i].normal,
+        double projected_opp_normal = projectPointToLineCoordinate(
+                    inc_edges[i].normal,
                     Vector2::ZERO,
-                    b1_collision_edge.normal
+                    ref_edge.normal
                     );
-        if (projected_b2_normal >= min_b2_edge_projected_normal)
+        if (projected_opp_normal >= min_opp_edge_projected_normal)
             continue;
 
-        min_b2_edge_projected_normal = projected_b2_normal;
-        min_b2_edge_index = i;
+        min_opp_edge_projected_normal = projected_opp_normal;
+        min_opp_edge_index = i;
     }
-    const Edge b2_collision_edge = b2_edges[min_b2_edge_index];
-
-    // reference edge determination, by which produce minimum penetration depth
-    const double edge_1_penetration_depth = projectedPenetration(b1_verts, 4, b2_verts, 4, b1_collision_edge);
-    const double edge_2_penetration_depth = projectedPenetration(b1_verts, 4, b2_verts, 4, b2_collision_edge);
-
-    *is_body_1_the_ref = false;
-    double ref_penetration_depth = edge_2_penetration_depth;
-    Edge ref_edge = b2_collision_edge;
-    Edge inc_edge = b1_collision_edge;
-    Edge* ref_edges = b2_edges;
-    int ref_edge_index = min_b2_edge_index;
-    if ( edge_1_penetration_depth < edge_2_penetration_depth ) {
-        *is_body_1_the_ref = true;
-        ref_penetration_depth = edge_1_penetration_depth;
-        ref_edge = b1_collision_edge;
-        inc_edge = b2_collision_edge;
-        ref_edges = b1_edges;
-        ref_edge_index = min_b1_edge_index;
-    }
+    const Edge inc_edge = inc_edges[min_opp_edge_index];
 
     // incident edge clipping, obtaining manifold
 
@@ -315,6 +311,8 @@ bool boxToBoxCollision(BoxCollider* box_1, BoxCollider* box_2, CollisionManifold
     manifold__out->normal = ref_edge.normal.normalized();
     manifold__out->penetration_depth = ref_penetration_depth;
     manifold__out->setPoints(manifold_points, manifold_point_counts);
+
+    *is_body_1_the_ref = (ref_body == BODY_1) ? true : false;
 
     return true;
 }
@@ -468,11 +466,6 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
                 polygon_2->__transform.rotation
                 );
     }
-
-    enum BODY {
-        BODY_1,
-        BODY_2
-    };
 
     // separating axis checks
     Vector2* ref_vertex_verts;
