@@ -74,6 +74,16 @@ Result<VoidResult, GameError> Game::Initialize() {
         return res;
 
     this->entityManager = new EntityManager();
+    this->entityManager->setComponentAddedToEntityCallback(
+            [this] (ComponentTag ctag, ComponentType ctype, size_t cindex, EntityID ent_id)
+            {
+            ComponentDataPayload payload;
+            payload.ctag = ctag;
+            payload.ctype = ctype;
+            payload.cindex = cindex;
+            this->OnComponentAddedToEntity(payload, ent_id);
+            }
+            );
     this->entityManager->setComponentRegisterCallback(
             [this] (ComponentTag ctag, ComponentType ctype, size_t cindex) 
             {
@@ -172,6 +182,13 @@ Void Game::PrepareAudio() {
 void Game::OnComponentRegistered(ComponentDataPayload component_payload) {
     for (auto& system : this->ecs_systems) {
         system->OnComponentRegistered(&component_payload);
+    }
+}
+
+
+void Game::OnComponentAddedToEntity(ComponentDataPayload component_payload, EntityID entity_id) {
+    for (auto& system : this->ecs_systems) {
+        system->OnComponentAddedToEntity(&component_payload, entity_id);
     }
 }
 

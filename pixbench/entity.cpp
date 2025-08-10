@@ -29,6 +29,13 @@ void EntityManager::setComponentRegisterCallback(
 }
 
 
+void EntityManager::setComponentAddedToEntityCallback(
+        std::function<void(ComponentTag, ComponentType, size_t, EntityID)> callback_func
+        ) {
+    m_component_manager->component_added_to_entity_callback = callback_func;
+}
+
+
 void EntityManager::setOnEntityDestroyedCallback(
         std::function<void(EntityID entity_id)> callback_func
         ) {

@@ -2,6 +2,7 @@
 #define ECS_HEADER
 
 #include "SDL3_mixer/SDL_mixer.h"
+#include "pixbench/entity.h"
 #include "pixbench/game.h"
 #include "pixbench/physics.h"
 #include "pixbench/resource.h"
@@ -13,6 +14,7 @@
 #include <SDL3/SDL_surface.h>
 #include <array>
 #include <bitset>
+#include <cmath>
 #include <cstddef>
 #include <cwchar>
 #include <functional>
@@ -28,16 +30,8 @@
 #include <utility>
 #include <vector>
 
-class EntityManager;
-class IComponent;
-class ISystem;
 
-typedef size_t EntityIDNumber;
-
-struct EntityID {
-    EntityIDNumber id;
-    size_t version = 0;
-};
+class PhysicsSystem;
 
 
 enum ComponentTag {
@@ -90,6 +84,9 @@ public:
 
     Vector2 LocalPosition() {return this->localPosition;};
     Vector2 GlobalPosition() {return this->globalPosition;};
+
+    const Vector2* __globalPosPtr() { return &globalPosition; }
+    const Vector2* __localPosPtr() { return &localPosition; }
 };
 
 
@@ -111,61 +108,66 @@ public:
     {};
 };
 
-class CollisionEvent {
-public:
-    EntityID other;
-    CollisionManifold manifold;
-    
-    CollisionEvent(EntityID other, CollisionManifold manifold)
-        : other(other), manifold(manifold)
-    {};
-};
-
 class Collider : public IComponent {
 private:
-    std::function<void(CollisionManifold&)> m_on_body_enter_callback = nullptr;
-    std::function<void(CollisionManifold&)> m_on_body_leave_callback = nullptr;
+    std::function<void(CollisionEvent)> m_on_body_enter_callback = nullptr;
+    std::function<void(EntityID)> m_on_body_leave_callback = nullptr;
     CollisionManifold m_manifold;
+    EntityID m_entity;
 public:
+    bool is_static;                     //!< static-to-static collision will be ignored
     float skin_depth = 1.0;             //!< skin depth for collision detection
+    float __bounding_radius = 1.0;
     Transform __transform = Transform();
+    PhysicsSystem* __physics_system{ nullptr };
 
-    void setManifold(CollisionManifold& manifold) {
-        m_manifold.penetration_depth = manifold.penetration_depth;
-        m_manifold.point_count = manifold.point_count;
-        m_manifold.normal = manifold.normal;
-        m_manifold.setPoints(manifold.points, manifold.point_count);
+    void __setEntity(EntityID entity) {
+        m_entity = entity;
     }
 
-    CollisionManifold& getManifold() {
-        return m_manifold;
+    /*
+     * The entity this collider is attached to
+     */
+    EntityID entity() {
+        return m_entity;
     }
 
     virtual ColliderTag getColliderTag() const {
         return COLTAG_Box;
     };
 
+
+    /*
+     * Set callbacks to call when this collider begins overlap with other collider
+     */
     virtual void setOnBodyEnterCallback(
-            std::function<void(CollisionManifold&)> callback_function
+            std::function<void(CollisionEvent)> callback_function
             ) {
         m_on_body_enter_callback = callback_function;
     }
 
+    /*
+     * Set callbacks to call when this collider leaves other collider
+     */
     virtual void setOnBodyLeaveCallback(
-            std::function<void(CollisionManifold&)> callback_function
+            std::function<void(EntityID)> callback_function
             ) {
         m_on_body_leave_callback = callback_function;
     }
 
-    void __triggerOnBodyEnter() {
-        if ( m_on_body_enter_callback )
-            m_on_body_enter_callback(m_manifold);
-    }
+    /*
+     * Returns true of this collider is colliding with other collider(s)
+     */
+    bool isColliding();
 
-    void __triggerOnBodyLeave() {
-        if ( m_on_body_leave_callback )
-            m_on_body_leave_callback(m_manifold);
-    }
+    /*
+     * Returns list of collision manifolds
+     * Note: checks whether this collider is colliding or not by calling `isColliding()`
+     */
+    std::vector<CollisionEvent> getCollisionState();
+
+    void __triggerOnBodyEnter(EntityID other_id);
+    void __triggerOnBodyLeave(EntityID other_id);
 
     ComponentTag getCTag() const override {
         return CTAG_Collider;
@@ -194,6 +196,8 @@ public:
         verts[2] = Vector2(-this->width / 2.0, this->height / 2.0);
         verts[3] = Vector2(this->width / 2.0, this->height / 2.0);
         this->__polygon.setVertex(verts, 4);
+
+        __bounding_radius = std::sqrt(this->width*this->width/4.0 + this->height*this->height/4.0);
     }
 
     void setSize(float width, float height) {
@@ -212,9 +216,14 @@ public:
 class CircleCollider : public Collider {
 public:
     float radius = 16.0;            //!< circle collider radius
+
+    void setRadius(float r) {
+        this->radius = r;
+        this->__bounding_radius = r + 2.0; // 2.0 of padding
+    }
     
     ColliderTag getColliderTag() const override {
-        return COLTAG_Box;
+        return COLTAG_Circle;
     };
 };
 
@@ -235,6 +244,16 @@ public:
                 polygon.vertex,
                 polygon.vertex_counts
                 );
+
+        // find max radius
+        for (size_t i=0; i<__polygon.vertex_counts; ++i) {
+            const Vector2 vert = __polygon.vertex[i];
+            const float r = std::sqrt(vert.x*vert.x + vert.y*vert.y);
+            if (i == 0 || r > __bounding_radius) {
+                __bounding_radius = r;
+            }
+        }
+
         return true;
     }
     
@@ -648,6 +667,7 @@ private:
 
 public:
     std::function<void(ComponentTag, ComponentType, size_t)> component_registered_callback{ nullptr };
+    std::function<void(ComponentTag, ComponentType, size_t, EntityID)> component_added_to_entity_callback{ nullptr };
 
     template<typename T>
     void registerComponent() {
@@ -698,12 +718,22 @@ public:
     }
     
     template<typename T>
-    void addComponentToEntity(EntityIDNumber entity_id){
+    void addComponentToEntity(EntityID entity_id){
         ComponentType component_type = typeid(T).hash_code();
 
         std::shared_ptr<ComponentArray<T>> component_array = this->getComponentArray<T>();
         if (component_array != nullptr) {
-            component_array->addComponentToArray(entity_id);
+            component_array->addComponentToArray(entity_id.id);
+
+            if (component_added_to_entity_callback) {
+                T dummy_obj = T();
+                ComponentTag ctag = static_cast<IComponent*>(&dummy_obj)->getCTag();
+                size_t component_index = m_component_type_to_index_map[component_type];
+                component_added_to_entity_callback(
+                        ctag, component_type, component_index,
+                        entity_id
+                        );
+            }
         }
     }
 
@@ -830,6 +860,10 @@ public:
             std::function<void(ComponentTag, ComponentType, size_t)>
             );
 
+    void setComponentAddedToEntityCallback(
+            std::function<void(ComponentTag, ComponentType, size_t, EntityID)>
+            );
+
     void setOnEntityDestroyedCallback(
             std::function<void(EntityID entity_id)>
             );
@@ -902,7 +936,7 @@ public:
             return nullptr;
         }
 
-        m_component_manager->addComponentToEntity<T>(entity.id);
+        m_component_manager->addComponentToEntity<T>(entity);
         m_entities[entity.id].component_mask[component_index] = true;
         
         return getEntityComponent<T>(entity);
@@ -1199,6 +1233,7 @@ class ISystem {
 public:
     virtual Result<VoidResult, GameError> Initialize(Game* game, EntityManager* entity_mgr) { return ResultOK; };
     virtual Result<VoidResult, GameError> Awake(EntityManager* entity_mgr) { return ResultOK; };
+    virtual Result<VoidResult, GameError> OnComponentAddedToEntity(const ComponentDataPayload* component_info, EntityID entity_id) { return ResultOK; };
     virtual Result<VoidResult, GameError> OnComponentRegistered(const ComponentDataPayload* component_info) { return ResultOK; };
     virtual Result<VoidResult, GameError> OnEvent(SDL_Event *event, EntityManager* entity_mgr) { return ResultOK; };
     virtual Result<VoidResult, GameError> Update(double delta_time_s, EntityManager* entity_mgr) { return ResultOK; };
@@ -1246,13 +1281,14 @@ public:
 
     bool isPairColliding(EntityID ent_a, EntityID ent_b);
     bool isEntityColliding(EntityID ent_id);
-    CollisionManifold* getCollisionPair(EntityID ent_a, EntityID ent_b);
-    std::vector<CollisionManifold*> getEntityCollisionManifolds(EntityID ent_id);
-    void setCollisionPair(EntityID ent_a, EntityID ent_b, CollisionManifold* manifold);
+    CollisionManifoldStore* getCollisionPair(EntityID ent_a, EntityID ent_b);
+    std::vector<CollisionEvent> getEntityCollisionManifolds(EntityID ent_id);
+    void setCollisionPair(EntityID ent_a, EntityID ent_b, CollisionManifold* manifold, EntityID ref_entity);
     void removeCollisionPair(EntityID ent_a, EntityID ent_b);
 
     Result<VoidResult, GameError> Initialize(Game* game, EntityManager* entity_mgr) override;
     Result<VoidResult, GameError> FixedUpdate(double delta_time_s, EntityManager* entity_mgr) override; // Physics update
+    Result<VoidResult, GameError> OnComponentAddedToEntity(const ComponentDataPayload* component_info, EntityID entity_id) override;
     Result<VoidResult, GameError> OnComponentRegistered(const ComponentDataPayload* component_info) override;
     Result<VoidResult, GameError> Draw(RenderContext* renderContext, EntityManager* entity_mgr) override;
     Result<VoidResult, GameError> OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id) override;
@@ -1271,6 +1307,7 @@ public:
     Result<VoidResult, GameError> OnEvent(SDL_Event *event, EntityManager* entity_mgr);
     Result<VoidResult, GameError> Update(double delta_time_s, EntityManager* entity_mgr);
     Result<VoidResult, GameError> LateUpdate(double delta_time_s, EntityManager* entity_mgr);
+    Result<VoidResult, GameError> FixedUpdate(double delta_time_s, EntityManager* entity_mgr);
     Result<VoidResult, GameError> OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id);
 };
 

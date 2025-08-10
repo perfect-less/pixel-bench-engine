@@ -2,12 +2,54 @@
 #include "pixbench/engine_config.h"
 #include "pixbench/vector2.h"
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include "pixbench/physics.h"
+
+
+enum BODY {
+    BODY_1,
+    BODY_2
+};
 
 
 int imod(int a, int b) {
     return (a % b + b) % b;
+}
+
+
+bool axisAlignedBoundingSquareCheck(
+        const Vector2* b1_pos, float b1_radius,
+        const Vector2* b2_pos, float b2_radius
+        ) {
+    const float combined_dist_x = std::abs(b2_pos->x - b1_pos->x);
+    const float combined_dist_y = std::abs(b2_pos->y - b1_pos->y);
+    const float total_radius = b1_radius + b2_radius;
+    return (combined_dist_x <= total_radius) && (combined_dist_y <= total_radius);
+}
+
+
+Vector2 projectPointToLine(Vector2 point, Vector2 line_p1, Vector2 line_p2) {
+    // special case when m = inf or m = 0
+    const double a_denum = (line_p2.x - line_p1.x);
+    if (a_denum == 0.0) {
+        return Vector2(line_p1.x, point.y);
+    }
+    if (line_p1.y == line_p2.y) {
+        return Vector2(point.x, line_p1.y);
+    }
+    // find A, B, C of the line
+    const double a = (line_p2.y - line_p1.y)/a_denum;
+    const double b = -1;
+    const double c = (line_p1.y*line_p2.x - line_p2.y*line_p1.x)/(line_p2.x - line_p1.x);
+
+    // calculate xp and yp
+    const double denum = a*a + b*b;
+    const double xp = (b*b*point.x - a*b*point.y - c*a)/denum;
+    const double yp = (a*a*point.y - a*b*point.x - c*b)/denum;
+
+    return Vector2(xp, yp);
 }
 
 
@@ -127,16 +169,26 @@ bool boxToBoxCollision(BoxCollider* box_1, BoxCollider* box_2, CollisionManifold
         b2_edges[i] = box_2->__polygon.getEdge(i, box_2->__transform.GlobalPosition(), box_2->__transform.rotation);
     }
 
-    double penetration_edge_indexes[4];
-    double penetration_depths[4];
+    BODY min_penetration_body = BODY_1;
+    double min_penetration_depth;
+    int min_penetration_edge_index = 0;
     int penetration_counts = 0;
 
     // edge loop
-    for (int i=0; i<4; ++i) {
-        const Edge edge = b1_edges[i];
+    for (int _i=0; _i<4*2; ++_i) {
+        int i = _i;
+        Edge edge;
+        Vector2 opp_pos = box_2->__transform.GlobalPosition();
+        if (_i >= 4) {
+            i = _i % 4;
+            edge = b2_edges[i];
+            opp_pos = box_1->__transform.GlobalPosition();
+        } else {
+            edge = b1_edges[i];
+        }
 
         // check edge direction, ignore edge pointing away from b2
-        if ( Vector2::dotProduct(box_2->__transform.GlobalPosition() - edge.p1, edge.normal) < 0.0 ) {
+        if ( Vector2::dotProduct(opp_pos - edge.p1, edge.normal) < 0.0 ) {
             continue;
         }
 
@@ -183,62 +235,42 @@ bool boxToBoxCollision(BoxCollider* box_1, BoxCollider* box_2, CollisionManifold
             return false;
         }
 
-        penetration_edge_indexes[penetration_counts] = i;
-        penetration_depths[penetration_counts] = penetration_depth;
-        penetration_counts++;
+        if (penetration_counts == 0 || (penetration_depth < min_penetration_depth)) {
+            min_penetration_depth = penetration_depth;
+            min_penetration_edge_index = i;
+            ++penetration_counts;
+            if (_i >= 4)
+                min_penetration_body = BODY_2;
+        }
     }
 
     if (penetration_counts == 0) {
         return false;
     }
 
-    // minimum depth edge
-    double min_depth = penetration_depths[0];
-    int min_b1_edge_index = penetration_edge_indexes[0];
-    for (int i=1; i<penetration_counts; ++i) {
-        if ( penetration_depths[i] >= min_depth )
-            continue;
-
-        min_depth = penetration_depths[i];
-        min_b1_edge_index = penetration_edge_indexes[i];
-    }
-    const Edge b1_collision_edge = b1_edges[min_b1_edge_index];
+    BODY ref_body = min_penetration_body;
+    int ref_edge_index = min_penetration_edge_index;
+    double ref_penetration_depth = min_penetration_depth;
+    Edge ref_edge = (ref_body == BODY_1) ? b1_edges[min_penetration_edge_index] : b2_edges[min_penetration_edge_index];
+    Edge* ref_edges = (ref_body == BODY_1) ? b1_edges : b2_edges;
+    Edge* inc_edges = (ref_body == BODY_1) ? b2_edges : b1_edges;
 
     // other edge calculation
-    int min_b2_edge_index = 0;
-    double min_b2_edge_projected_normal = 1.0;
+    int min_opp_edge_index = 0;
+    double min_opp_edge_projected_normal = 1.0;
     for (int i=0; i<4; ++i) {
-        double projected_b2_normal = projectPointToLineCoordinate(
-                    b2_edges[i].normal,
+        double projected_opp_normal = projectPointToLineCoordinate(
+                    inc_edges[i].normal,
                     Vector2::ZERO,
-                    b1_collision_edge.normal
+                    ref_edge.normal
                     );
-        if (projected_b2_normal >= min_b2_edge_projected_normal)
+        if (projected_opp_normal >= min_opp_edge_projected_normal)
             continue;
 
-        min_b2_edge_projected_normal = projected_b2_normal;
-        min_b2_edge_index = i;
+        min_opp_edge_projected_normal = projected_opp_normal;
+        min_opp_edge_index = i;
     }
-    const Edge b2_collision_edge = b2_edges[min_b2_edge_index];
-
-    // reference edge determination, by which produce minimum penetration depth
-    const double edge_1_penetration_depth = projectedPenetration(b1_verts, 4, b2_verts, 4, b1_collision_edge);
-    const double edge_2_penetration_depth = projectedPenetration(b1_verts, 4, b2_verts, 4, b2_collision_edge);
-
-    *is_body_1_the_ref = false;
-    double ref_penetration_depth = edge_2_penetration_depth;
-    Edge ref_edge = b2_collision_edge;
-    Edge inc_edge = b1_collision_edge;
-    Edge* ref_edges = b2_edges;
-    int ref_edge_index = min_b2_edge_index;
-    if ( edge_1_penetration_depth < edge_2_penetration_depth ) {
-        *is_body_1_the_ref = true;
-        ref_penetration_depth = edge_1_penetration_depth;
-        ref_edge = b1_collision_edge;
-        inc_edge = b2_collision_edge;
-        ref_edges = b1_edges;
-        ref_edge_index = min_b1_edge_index;
-    }
+    const Edge inc_edge = inc_edges[min_opp_edge_index];
 
     // incident edge clipping, obtaining manifold
 
@@ -292,11 +324,23 @@ bool boxToBoxCollision(BoxCollider* box_1, BoxCollider* box_2, CollisionManifold
     manifold__out->penetration_depth = ref_penetration_depth;
     manifold__out->setPoints(manifold_points, manifold_point_counts);
 
+    *is_body_1_the_ref = (ref_body == BODY_1) ? true : false;
+
     return true;
 }
 
 bool boxToCircleCollision(BoxCollider* box, CircleCollider* circle, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
-    return false;
+    PolygonCollider poly_1;
+    poly_1.setPolygon(box->__polygon);
+    poly_1.__transform = box->__transform;
+    const bool is_colliding = circleToPolygonCollision(
+            circle,
+            &poly_1,
+            manifold__out,
+            is_body_1_the_ref
+            );
+    *is_body_1_the_ref = !(*is_body_1_the_ref);
+    return is_colliding;
 }
 
 bool boxToPolygonCollision(BoxCollider* box, PolygonCollider* polygon, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
@@ -317,8 +361,87 @@ bool circleToCircleCollision(CircleCollider* circle_1, CircleCollider* circle_2,
     return false;
 }
 
+double distancePointToInfiniteLine(Vector2 point, Vector2 line_p1, Vector2 line_p2) {
+    return (projectPointToLine(point, line_p1, line_p2) - point).magnitude();
+}
+
+double distancePointToTerminatedLine(Vector2 point, Vector2 line_p1, Vector2 line_p2, Vector2* out_minimum_point = nullptr) {
+    const float min_x = std::min(line_p1.x , line_p2.x);
+    const float max_x = std::max(line_p1.x , line_p2.x);
+    const float min_y = std::min(line_p1.y , line_p2.y);
+    const float max_y = std::max(line_p1.y , line_p2.y);
+
+    Vector2 proj_point = projectPointToLine(point, line_p1, line_p2);
+    if ( proj_point.x < min_x || proj_point.x > max_x || proj_point.y < min_y || proj_point.y > max_y ) { // if outside of bound-box
+        const double dist_to_p1 = (line_p1 - point).magnitude();
+        const double dist_to_p2 = (line_p2 - point).magnitude();
+
+        double min_dist = dist_to_p2;
+        Vector2 min_point = line_p2;
+        if (dist_to_p1 < dist_to_p2) {
+            min_dist = dist_to_p1;
+            min_point = line_p1;
+        }
+
+        if ( out_minimum_point ) {
+            *out_minimum_point = min_point;
+        }
+        return min_dist;
+    }
+
+    if ( out_minimum_point ) {
+        *out_minimum_point = proj_point;
+    }
+    return (proj_point - point).magnitude();
+}
+
 bool circleToPolygonCollision(CircleCollider* circle, PolygonCollider* polygon, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
-    return false;
+
+    // collision happens when distance between circle's centroid and any of polygon's edges is less than or equal to circle's radius.
+    const Vector2 circ_pos = circle->__transform.GlobalPosition();
+    const Vector2 poly_pos = polygon->__transform.GlobalPosition();
+    const double poly_rot = polygon->__transform.rotation;
+
+
+    double max_penetration_depth;
+    Vector2 max_penetration_point;
+    size_t penetration_count = 0;
+    for (size_t i=0; i<(polygon->__polygon.vertex_counts); ++i) {
+        const Edge edge = polygon->__polygon.getEdge(
+                i, poly_pos, poly_rot
+                );
+
+        Vector2 out__corresponding_point = Vector2(100.0, 100.0);
+        const double d = distancePointToTerminatedLine(
+                circ_pos,
+                edge.p1, edge.p2,
+                &out__corresponding_point
+                );
+
+        if ( d > circle->radius )
+            continue;
+
+        const double penetration_depth = circle->radius - d;
+        if ( penetration_count == 0 || (penetration_depth > max_penetration_depth) ) {
+            max_penetration_depth = penetration_depth;
+            max_penetration_point = out__corresponding_point;
+            penetration_count++;
+        }
+    }
+
+    if ( penetration_count == 0 )
+        return false;
+
+    // collision edge
+    const Vector2 normal = (max_penetration_point - circ_pos).normalized();
+    manifold__out->point_count = 1;
+    manifold__out->points[0] = max_penetration_point;
+    manifold__out->penetration_depth = max_penetration_depth;
+    manifold__out->normal = normal;
+
+    *is_body_1_the_ref = true;
+
+    return true;
 }
 
 
@@ -355,11 +478,6 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
                 polygon_2->__transform.rotation
                 );
     }
-
-    enum BODY {
-        BODY_1,
-        BODY_2
-    };
 
     // separating axis checks
     Vector2* ref_vertex_verts;
@@ -543,6 +661,9 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
                 polygon_2->__transform.GlobalPosition(),
                 polygon_2->__transform.rotation
                 );
+        *is_body_1_the_ref = true;
+    } else {
+        *is_body_1_the_ref = false;
     }
 
     // opposing edge determination, the most opposed to min_penetration_edge's normal
@@ -592,6 +713,7 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
         ref_edge_count = opp_vertex_count;
         ref_edge = &ref_edges[ref_edge_index];
         inc_edge = ref_vertex_edges[min_penetration_edge_index];
+        *is_body_1_the_ref = !(*is_body_1_the_ref);
     }
 
     // incident edge clipping
