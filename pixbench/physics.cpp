@@ -653,6 +653,9 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
                 polygon_2->__transform.GlobalPosition(),
                 polygon_2->__transform.rotation
                 );
+        *is_body_1_the_ref = true;
+    } else {
+        *is_body_1_the_ref = false;
     }
 
     // opposing edge determination, the most opposed to min_penetration_edge's normal
@@ -702,6 +705,7 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
         ref_edge_count = opp_vertex_count;
         ref_edge = &ref_edges[ref_edge_index];
         inc_edge = ref_vertex_edges[min_penetration_edge_index];
+        *is_body_1_the_ref = !(*is_body_1_the_ref);
     }
 
     // incident edge clipping
