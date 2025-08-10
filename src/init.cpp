@@ -1,6 +1,7 @@
 #include "pixbench/ecs.h"
 #include "pixbench/game.h"
-#include "pixbench/physics.h"
+#include "pixbench/renderer.h"
+#include "pixbench/resource.h"
 #include "pixbench/utils.h"
 #include "pixbench/vector2.h"
 #include <SDL3/SDL_events.h>
@@ -9,10 +10,10 @@
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_scancode.h>
 #include <SDL3/SDL_surface.h>
-#include <cmath>
+#include <algorithm>
 #include <cstdlib>
-#include <functional>
 #include <iostream>
+#include <memory>
 #include <ostream>
 #include <string>
 
@@ -30,8 +31,7 @@ Game* Game::CreateGame() {
     gConfig.game_identifier = "com.example.pixelnode-game";
     
     gConfig.render_vsync_enabled = true;
-    // gConfig.render_clear_color   = Color(255, 255, 100, 255);
-    gConfig.render_clear_color   = Color(100, 100, 100, 255);
+    gConfig.render_clear_color   = Color(255, 255, 100, 255);
 
     game->ApplyGameConfig(gConfig);
 
@@ -117,226 +117,6 @@ void Game::InitializeGame(Game* game) {
     
     // then you can add that component
     ent_mgr->addComponentToEntity<QuitHandlerScript>(ent);
-
-    //
-    std::cout << "PHYSICS CREATION BEGIN" << std::endl;
-
-    class BoxController : public ScriptComponent {
-    public:
-        Game* m_game{ nullptr };
-        EntityManager* m_ent_mgr{ nullptr };
-        EntityID m_self;
-        Vector2 m_input{ Vector2::ZERO };
-        int rotation_input{ 0 };
-
-        void ColliderOnEnter(CollisionEvent coll_event) {
-            std::cout << "ON ENTER ==================================" << std::endl;
-            std::cout << "ON ENTER ==================================" << std::endl;
-            std::cout << "ON ENTER ==================================" << std::endl;
-            std::cout << "ON ENTER ==================================" << std::endl;
-            std::cout << "ON ENTER ==================================" << std::endl;
-            std::cout << "ON ENTER ==================================" << std::endl;
-            std::cout << "ON ENTER ==================================" << std::endl;
-            std::cout << "ON ENTER ==================================" << std::endl;
-            std::cout << "ON ENTER ==================================" << std::endl;
-            std::cout << "ON ENTER ==================================" << std::endl;
-            std::cout << "ON ENTER ==================================" << std::endl;
-            std::cout << "ON ENTER ==================================: " << coll_event.manifold.penetration_depth << std::endl;
-
-            // push back
-            Vector2 normal = coll_event.manifold.normal;
-            if ( !m_ent_mgr )
-                return;
-            Transform* transform = m_ent_mgr->getEntityComponent<Transform>(m_self);
-            if ( !transform )
-                return;
-
-            transform->SetPosition(
-                    transform->GlobalPosition() - normal*(coll_event.manifold.penetration_depth)
-                    );
-        }
-
-        void ColliderOnLeave(EntityID other_id) {
-            std::cout << "ON LEAVE ==================================" << std::endl;
-            std::cout << "ON LEAVE ==================================" << std::endl;
-            std::cout << "ON LEAVE ==================================" << std::endl;
-        }
-
-        Result<VoidResult, GameError> Init(Game *game, EntityManager *entityManager, EntityID self) override {
-            m_game = game;
-            m_ent_mgr = entityManager;
-
-            m_self = self;
-
-            auto circ_coll = entityManager->getEntityComponent<PolygonCollider>(self);
-            if ( circ_coll ) {
-                circ_coll->setOnBodyEnterCallback(
-                        [=](CollisionEvent coll_event) {
-                        std::cout << "OnEnter callback called. other_id: " << coll_event.other.id << std::endl;
-                        this->ColliderOnEnter(coll_event);
-                        }
-                        );
-                circ_coll->setOnBodyLeaveCallback(
-                        [=](EntityID other_id) {
-                        std::cout << "OnLeave callback called. other_id: " << other_id.id << std::endl;
-                        this->ColliderOnLeave(other_id);
-                        }
-                        );
-            }
-            
-            return ResultOK;
-        }
-
-        Result<VoidResult, GameError> OnEvent(SDL_Event *event, EntityManager *entityManager, EntityID self) override {
-            if ( !m_game )
-                return ResultOK;
-
-            rotation_input = 0;
-            m_input = Vector2::ZERO;
-            if (event->type == SDL_EVENT_KEY_DOWN) {
-                if (event->key.key == SDLK_A) {
-                    m_input.x -= 1.0;
-                }
-                if (event->key.key == SDLK_D) {
-                    m_input.x += 1.0;
-                }
-                if (event->key.key == SDLK_W) {
-                    m_input.y += 1.0;
-                }
-                if (event->key.key == SDLK_S) {
-                    m_input.y -= 1.0;
-                }
-                
-                if (event->key.key == SDLK_X) {
-                    rotation_input -= 1;
-                }
-                if (event->key.key == SDLK_C) {
-                    rotation_input += 1;
-                }
-            }
-
-            if (event->type == SDL_EVENT_KEY_DOWN && event->key.key == SDLK_L) {
-                entityManager->destroyEntity(self);
-            }
-
-            return ResultOK;
-        }
-
-        Result<VoidResult, GameError> Update(double deltaTime_s, EntityManager *entityManager, EntityID self) override {
-
-            std::cout << "======== FPS : " << 1.0/deltaTime_s << "========" << std::endl;
-
-            Transform* transform = entityManager->getEntityComponent<Transform>(self);
-            if ( !transform )
-                return ResultOK;
-            
-            if ( m_input.sqrMagnitude() > 0.0 ) {
-                Vector2 last_pos = transform->GlobalPosition();
-                Vector2 move_vector = Vector2(m_input.x, -m_input.y) * deltaTime_s * 100.0;
-                transform->SetPosition(last_pos + move_vector);
-            }
-
-            if ( rotation_input != 0 ) {
-                transform->rotation += rotation_input * M_PI * deltaTime_s;
-            }
-            
-            return ResultOK;
-        }
-
-        Result<VoidResult, GameError> FixedUpdate(double deltaTime_s, EntityManager *entityManager, EntityID self) override {
-
-            auto coll = entityManager->getEntityComponent<PolygonCollider>(self);
-            if ( !coll )
-                return ResultOK;
-
-            Transform* transform = entityManager->getEntityComponent<Transform>(self);
-            if ( !transform )
-                return ResultOK;
-
-            if ( !coll->isColliding() )
-                return ResultOK;
-            std::cout << "======================================== is colliding" << std::endl;
-
-            std::vector<CollisionEvent> coll_events = coll->getCollisionState();
-            std::cout << "======================================== colliding counts: " << coll_events.size() << std::endl;
-            for (auto coll_event : coll_events) {
-                std::cout << "======================================== other: " << coll_event.other.id
-                    << std::endl;
-                std::cout << "======================================== depth: " << coll_event.manifold.penetration_depth
-                    << std::endl;
-                const double dot = Vector2::dotProduct(coll_event.manifold.normal, coll_event.manifold.points[0] - transform->GlobalPosition());
-                Vector2 normal = coll_event.manifold.normal;
-                // if ( dot < 0.0 )
-                //     normal = -1.0*normal;
-                transform->SetPosition(
-                        transform->GlobalPosition() - normal*coll_event.manifold.penetration_depth
-                        );
-            }
-
-            return ResultOK;
-        }
-    };
-
-    EntityID box1_ent = ent_mgr->createEntity();
-    Transform* box1_trans = ent_mgr->addComponentToEntity<Transform>(box1_ent);
-    BoxCollider* box1_coll = ent_mgr->addComponentToEntity<BoxCollider>(box1_ent);
-    // BoxController* box_cont = ent_mgr->addComponentToEntity<BoxController>(box1_ent);
-    box1_trans->SetPosition(Vector2(32.0, 32.0));
-    box1_coll->width = 128.0;
-    box1_coll->height = 64.0;
-    box1_coll->setSize();
-
-    EntityID box2_ent = ent_mgr->createEntity();
-    Transform* box2_trans = ent_mgr->addComponentToEntity<Transform>(box2_ent);
-    BoxCollider* box2_coll = ent_mgr->addComponentToEntity<BoxCollider>(box2_ent);
-    box2_trans->SetPosition(Vector2(128.0, 64.0));
-    box2_coll->width = 48.0;
-    box2_coll->height = 48.0;
-    box2_coll->setSize();
-
-    // polygon - triangles
-
-    Vector2 tris_vertex[3];
-    tris_vertex[0] = Vector2(16.0, 16.0);
-    tris_vertex[1] = Vector2(0.0, -16.0);
-    tris_vertex[2] = Vector2(-16.0, 16.0);
-    Polygon poly = Polygon();
-    poly.setVertex(tris_vertex, 3);
-
-    EntityID tri_ent = ent_mgr->createEntity();
-    Transform* tri_trans = ent_mgr->addComponentToEntity<Transform>(tri_ent);
-    PolygonCollider* tri_poly = ent_mgr->addComponentToEntity<PolygonCollider>(tri_ent);
-    tri_poly->setPolygon(poly);
-    tri_trans->SetPosition(Vector2(128.0, 128.0));
-    BoxController* tri_cont = ent_mgr->addComponentToEntity<BoxController>(tri_ent);
-
-
-
-    Vector2 tris_vertex_2[5];
-    tris_vertex_2[0] = Vector2(16.0, 16.0);
-    tris_vertex_2[1] = Vector2(16.0, -16.0);
-    tris_vertex_2[2] = Vector2(0.0, -32.0);
-    tris_vertex_2[3] = Vector2(-16.0, -16.0);
-    tris_vertex_2[4] = Vector2(-16.0, 16.0);
-    Polygon poly_2 = Polygon();
-    poly_2.setVertex(tris_vertex_2, 5);
-
-    EntityID tri_ent_2 = ent_mgr->createEntity();
-    Transform* tri_trans_2 = ent_mgr->addComponentToEntity<Transform>(tri_ent_2);
-    PolygonCollider* tri_poly_2 = ent_mgr->addComponentToEntity<PolygonCollider>(tri_ent_2);
-    tri_poly_2->setPolygon(poly_2);
-    tri_trans_2->SetPosition(Vector2(128.0 + 64.0, 128.0));
-
-
-    EntityID circ_ent = ent_mgr->createEntity();
-    Transform* circ_trans = ent_mgr->addComponentToEntity<Transform>(circ_ent);
-    CircleCollider* circ_coll = ent_mgr->addComponentToEntity<CircleCollider>(circ_ent);
-    circ_coll->radius = 32.0;
-    circ_trans->SetPosition(Vector2(128.0 + 64.0, 300.0));
-    // BoxController* circ_cont = ent_mgr->addComponentToEntity<BoxController>(circ_ent);
-
-    std::cout << "PHYSICS CREATION DONE" << std::endl;
-    //
 
     // destroying entity
     // ent_mgr->destroyEntity(ent);
