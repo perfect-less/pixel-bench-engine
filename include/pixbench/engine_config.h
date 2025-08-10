@@ -50,6 +50,7 @@ const size_t MAX_POLYGON_VERTEX = 16;
 // Uncomment this to draw collider debug lines
 #define PHYSICS_DEBUG_DRAW
 // #define PHYSICS_DEBUG_DRAW_SHOW_ENTITY_ID
+// #define PHYSICS_DEBUG_DRAW_SHOW_BOUNDING_BOX
 
 
 #endif

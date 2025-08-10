@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include "pixbench/physics.h"
 
 
@@ -15,6 +16,17 @@ enum BODY {
 
 int imod(int a, int b) {
     return (a % b + b) % b;
+}
+
+
+bool axisAlignedBoundingSquareCheck(
+        const Vector2* b1_pos, float b1_radius,
+        const Vector2* b2_pos, float b2_radius
+        ) {
+    const float combined_dist_x = std::abs(b2_pos->x - b1_pos->x);
+    const float combined_dist_y = std::abs(b2_pos->y - b1_pos->y);
+    const float total_radius = b1_radius + b2_radius;
+    return (combined_dist_x <= total_radius) && (combined_dist_y <= total_radius);
 }
 
 

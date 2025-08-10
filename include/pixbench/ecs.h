@@ -14,6 +14,7 @@
 #include <SDL3/SDL_surface.h>
 #include <array>
 #include <bitset>
+#include <cmath>
 #include <cstddef>
 #include <cwchar>
 #include <functional>
@@ -83,6 +84,9 @@ public:
 
     Vector2 LocalPosition() {return this->localPosition;};
     Vector2 GlobalPosition() {return this->globalPosition;};
+
+    const Vector2* __globalPosPtr() { return &globalPosition; }
+    const Vector2* __localPosPtr() { return &localPosition; }
 };
 
 
@@ -111,7 +115,9 @@ private:
     CollisionManifold m_manifold;
     EntityID m_entity;
 public:
+    bool is_static;                     //!< static-to-static collision will be ignored
     float skin_depth = 1.0;             //!< skin depth for collision detection
+    float __bounding_radius = 1.0;
     Transform __transform = Transform();
     PhysicsSystem* __physics_system{ nullptr };
 
@@ -190,6 +196,8 @@ public:
         verts[2] = Vector2(-this->width / 2.0, this->height / 2.0);
         verts[3] = Vector2(this->width / 2.0, this->height / 2.0);
         this->__polygon.setVertex(verts, 4);
+
+        __bounding_radius = std::sqrt(this->width*this->width/4.0 + this->height*this->height/4.0);
     }
 
     void setSize(float width, float height) {
@@ -208,6 +216,11 @@ public:
 class CircleCollider : public Collider {
 public:
     float radius = 16.0;            //!< circle collider radius
+
+    void setRadius(float r) {
+        this->radius = r;
+        this->__bounding_radius = r + 2.0; // 2.0 of padding
+    }
     
     ColliderTag getColliderTag() const override {
         return COLTAG_Circle;
@@ -231,6 +244,16 @@ public:
                 polygon.vertex,
                 polygon.vertex_counts
                 );
+
+        // find max radius
+        for (size_t i=0; i<__polygon.vertex_counts; ++i) {
+            const Vector2 vert = __polygon.vertex[i];
+            const float r = std::sqrt(vert.x*vert.x + vert.y*vert.y);
+            if (i == 0 || r > __bounding_radius) {
+                __bounding_radius = r;
+            }
+        }
+
         return true;
     }
     

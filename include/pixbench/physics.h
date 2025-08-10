@@ -232,6 +232,11 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
 
 // === Physics utility functions ===
 
+bool axisAlignedBoundingSquareCheck(
+        const Vector2* b1_pos, float b1_radius,
+        const Vector2* b2_pos, float b2_radius
+        );
+
 Vector2 projectPointToLine(Vector2 point, Vector2 line_p1, Vector2 line_p2);
 
 

@@ -5,6 +5,7 @@
 #include "pixbench/renderer.h"
 #include "pixbench/vector2.h"
 #include "SDL3_mixer/SDL_mixer.h"
+#include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
 #include <algorithm>
 #include <bitset>
@@ -831,6 +832,7 @@ Result<VoidResult, GameError> PhysicsSystem::OnComponentRegistered(const Compone
 }
 
 
+SDL_Renderer* renderer = nullptr;
 Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, EntityManager* entity_mgr) {
 
     struct ColliderObject {
@@ -879,6 +881,17 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
         for (auto coll_2 = colliders.begin() + ind; coll_2 != colliders.end(); ++coll_2) {
             if ( coll_1.entity.id == coll_2->entity.id )
                 continue;
+
+            if ( coll_1.collider->is_static == coll_2->collider->is_static )
+                continue;
+
+            if (!axisAlignedBoundingSquareCheck(
+                        coll_1.collider->__transform.__globalPosPtr(), coll_1.collider->__bounding_radius,
+                        coll_2->collider->__transform.__globalPosPtr(), coll_2->collider->__bounding_radius
+                        ))
+                continue;
+
+            std::cout << "COLL: ( " << coll_1.entity.id << ", " << coll_2->entity.id << " )" << std::endl;
 
             // pair checking
             CollisionManifold manifold = CollisionManifold(Vector2::RIGHT, 0.0);
@@ -1017,6 +1030,7 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
 
 
 Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, EntityManager* entity_mgr) {
+    renderer = renderContext->renderer;
 
 #ifdef PHYSICS_DEBUG_DRAW
 
@@ -1218,6 +1232,23 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                     }
 
             }
+
+#ifdef PHYSICS_DEBUG_DRAW_SHOW_BOUNDING_BOX
+            SDL_FRect bbox_rect = {
+                coll->__transform.__globalPosPtr()->x - coll->__bounding_radius,
+                coll->__transform.__globalPosPtr()->y - coll->__bounding_radius,
+                coll->__bounding_radius*2,
+                coll->__bounding_radius*2
+            };
+            SDL_SetRenderDrawColorFloat(
+                    renderContext->renderer,
+                    0.0, 1.0, 0.0, 1.0
+                    );
+            SDL_RenderRect(
+                    renderContext->renderer,
+                    &bbox_rect
+                    );
+#endif
 
 #ifdef PHYSICS_DEBUG_DRAW_SHOW_ENTITY_ID
             SDL_SetRenderDrawColorFloat(
