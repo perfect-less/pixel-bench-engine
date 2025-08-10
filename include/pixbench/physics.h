@@ -1,6 +1,7 @@
 #ifndef PHYSICS_HEADER
 #define PHYSICS_HEADER
 
+#include "pixbench/entity.h"
 #include "pixbench/engine_config.h"
 #include "pixbench/vector2.h"
 #include <cmath>
@@ -49,10 +50,29 @@ public:
 };
 
 
+class CollisionEvent {
+public:
+    EntityID other;
+    CollisionManifold manifold;
+
+    CollisionEvent(EntityID other, CollisionManifold manifold)
+        : other(other), manifold(manifold)
+    {};
+};
+
+
+
+class CollisionManifoldStore {
+public:
+    CollisionManifold manifold;
+    EntityID reference_entity;
+};
+
+
 
 class CollisionManifoldStorage {
 private:
-    std::unordered_map<size_t, CollisionManifold> m_manifold_map;
+    std::unordered_map<size_t, CollisionManifoldStore> m_manifold_map;
 public:
 
     CollisionManifoldStorage() {
@@ -75,14 +95,14 @@ public:
         return ( res_it != m_manifold_map.end() );
     }
 
-    CollisionManifold* getManifold(size_t ent_a, size_t ent_b) {
+    CollisionManifoldStore* getManifold(size_t ent_a, size_t ent_b) {
         const size_t hash_index = pairToHashIndex(ent_a, ent_b);
         auto res_it = m_manifold_map.find(hash_index);
         if ( res_it != m_manifold_map.end() ) {
             return &(res_it->second);
         }
 
-        m_manifold_map[hash_index] = CollisionManifold();
+        m_manifold_map[hash_index] = CollisionManifoldStore();
         return &(m_manifold_map[hash_index]);
     }
 

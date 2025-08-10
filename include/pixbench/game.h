@@ -222,9 +222,16 @@ public:
     /**
      * Callback called when a new Component type is registered to ComponentManager
      *
-     * Read more on: `EntityManager::setOnEntityDestroyedCallback`
+     * Read more on: `EntityManager::setComponentRegisterCallback`
      */
     void OnComponentRegistered(ComponentDataPayload component_payload);
+
+    /**
+     * Callback called when a Component is added to an entity
+     *
+     * Read more on: `EntityManager::setComponentAddedToEntityCallback`
+     */
+    void OnComponentAddedToEntity(ComponentDataPayload component_payload, EntityID entity_id);
 
     /**
      * Callback called when an entity will be destroyed.

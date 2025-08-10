@@ -145,6 +145,27 @@ Result<VoidResult, GameError> ScriptSystem::LateUpdate(double delta_time_s, Enti
 };
 
 
+Result<VoidResult, GameError> ScriptSystem::FixedUpdate(double delta_time_s, EntityManager* entity_mgr) {
+    for (size_t cindex=0; cindex<MAX_COMPONENTS; ++cindex) {
+        if (!(this->m_script_components_mask[cindex]))
+            continue; // skip non-script components
+
+        std::bitset<MAX_COMPONENTS> mask;
+        mask.reset();
+        mask.set(cindex);
+        for (auto ent_id : EntityView(entity_mgr, mask, false)) {
+            auto script = entity_mgr->getEntityComponentCasted<ScriptComponent>(
+                    ent_id, cindex);
+            auto res = script->FixedUpdate(delta_time_s, entity_mgr, ent_id);
+            if ( !res.isOk() )
+                return res;
+        }
+    }
+
+    return ResultOK;
+};
+
+
 // ===================== Rendering System =====================
 
 Result<VoidResult, GameError> RenderingSystem::OnComponentRegistered(const ComponentDataPayload* component_info) {
@@ -689,7 +710,7 @@ bool PhysicsSystem::isEntityColliding(EntityID ent_id) {
     return m_collisions_count[ent_id.id] > 0;
 }
 
-CollisionManifold* PhysicsSystem::getCollisionPair(EntityID ent_a, EntityID ent_b) {
+CollisionManifoldStore* PhysicsSystem::getCollisionPair(EntityID ent_a, EntityID ent_b) {
     if ( !isPairColliding(ent_a, ent_b) )
         return nullptr;
 
@@ -697,13 +718,17 @@ CollisionManifold* PhysicsSystem::getCollisionPair(EntityID ent_a, EntityID ent_
 }
 
 
-void PhysicsSystem::setCollisionPair(EntityID ent_a, EntityID ent_b, CollisionManifold* manifold) {
+void PhysicsSystem::setCollisionPair(
+        EntityID ent_a, EntityID ent_b, CollisionManifold* manifold,
+        EntityID ref_entity
+        ) {
     if ( !m_manifolds.isManifoldExist(ent_a.id, ent_b.id) ) {
         m_collisions_count[ent_a.id] += 1;
         m_collisions_count[ent_b.id] += 1;
     }
-    CollisionManifold* _manifold = m_manifolds.getManifold(ent_a.id, ent_b.id);
-    *_manifold = *manifold;
+    CollisionManifoldStore* _manifold_store = m_manifolds.getManifold(ent_a.id, ent_b.id);
+    _manifold_store->manifold = *manifold;
+    _manifold_store->reference_entity = ref_entity;
 }
 
 
@@ -720,28 +745,57 @@ void PhysicsSystem::removeCollisionPair(EntityID ent_a, EntityID ent_b) {
         m_collisions_count[ent_b.id]--;
 }
 
-std::vector<CollisionManifold*> PhysicsSystem::getEntityCollisionManifolds(EntityID ent_id) {
-     std::vector<CollisionManifold*> manifolds;
+std::vector<CollisionEvent> PhysicsSystem::getEntityCollisionManifolds(EntityID ent_id) {
+     std::vector<CollisionEvent> coll_events;
      if ( !isEntityColliding(ent_id) )
-         return manifolds;
+         return coll_events;
 
      for (size_t i=0; i<m_num_entities_with_collider; ++i) {
          EntityID ent_2 = m_entities_with_collider[i];
          if ( ent_id.id == ent_2.id )
              continue;
 
-         CollisionManifold* manifold = getCollisionPair(ent_id, ent_2);
-         if ( !manifold )
+         CollisionManifoldStore* _manifold_store = getCollisionPair(ent_id, ent_2);
+         if ( !_manifold_store )
              continue;
 
-         manifolds.push_back(manifold);
+         CollisionEvent event = CollisionEvent(ent_2, _manifold_store->manifold);
+         if ( _manifold_store->reference_entity.id != ent_id.id ) {
+             event.manifold.flipNormal();
+         }
+
+         coll_events.push_back(event);
      }
 
-     return manifolds;
+     return coll_events;
 }
 
 
 Result<VoidResult, GameError> PhysicsSystem::Initialize(Game* game, EntityManager* entity_mgr) {
+    for (size_t cindex=0; cindex<MAX_COMPONENTS; ++cindex) {
+        if (!(this->m_physics_components_mask[cindex]))
+            continue; // skip non-collider components
+
+        std::bitset<MAX_COMPONENTS> mask;
+        mask.reset();
+        mask.set(cindex);
+        for (auto ent_id : EntityView(entity_mgr, mask, false)) {
+            auto collider = entity_mgr->getEntityComponentCasted<Collider>(
+                    ent_id, cindex);
+            collider->__setEntity(ent_id);
+            collider->__physics_system = this;
+        }
+    }
+
+    return ResultOK;
+}
+
+
+Result<VoidResult, GameError> PhysicsSystem::OnComponentAddedToEntity(const ComponentDataPayload* component_info, EntityID entity_id) {
+
+    if (component_info->ctag != CTAG_Collider)
+        return ResultOK;
+
     return ResultOK;
 }
 
@@ -869,6 +923,7 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
                                     &manifold,
                                     &is_body_1_the_ref
                                     );
+                            is_body_1_the_ref = !is_body_1_the_ref;
                             break;
                         case COLTAG_Circle:
                             is_colliding = circleToCircleCollision(
@@ -897,6 +952,7 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
                                     &manifold,
                                     &is_body_1_the_ref
                                     );
+                            is_body_1_the_ref = !is_body_1_the_ref;
                             break;
                         case COLTAG_Circle:
                             is_colliding = circleToPolygonCollision(
@@ -905,6 +961,7 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
                                     &manifold,
                                     &is_body_1_the_ref
                                     );
+                            is_body_1_the_ref = !is_body_1_the_ref;
                             break;
                         case COLTAG_Polygon:
                             is_colliding = polygonToPolygonCollision(
@@ -930,11 +987,12 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
                     trigger_enter = true;
                 }
 
-                setCollisionPair(coll_1.entity, coll_2->entity, &manifold);
+                EntityID ref_entity = is_body_1_the_ref ? coll_1.entity : coll_2->entity;
+                setCollisionPair(coll_1.entity, coll_2->entity, &manifold, ref_entity);
 
                 if ( trigger_enter ) {
-                    coll_1.collider->__triggerOnBodyEnter();
-                    coll_2->collider->__triggerOnBodyEnter();
+                    coll_1.collider->__triggerOnBodyEnter(coll_2->entity);
+                    coll_2->collider->__triggerOnBodyEnter(coll_1.entity);
                 }
             }
             // manifold points means there's collision
@@ -946,8 +1004,8 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
 
                 removeCollisionPair(coll_1.entity, coll_2->entity);
                 
-                coll_1.collider->__triggerOnBodyLeave();
-                coll_2->collider->__triggerOnBodyLeave();
+                coll_1.collider->__triggerOnBodyLeave(coll_2->entity);
+                coll_2->collider->__triggerOnBodyLeave(coll_1.entity);
             }
         }
         
@@ -1013,10 +1071,11 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                             points,
                             5);
                     // manifold
-                    std::vector<CollisionManifold*> manifolds = getEntityCollisionManifolds(ent_id);
-                    for (CollisionManifold* manifold : manifolds) {
-                        for (int i=0; i<manifold->point_count; ++i) {
-                            Vector2 contact = manifold->points[i];
+                    std::vector<CollisionEvent> coll_events = getEntityCollisionManifolds(ent_id);
+                    for (auto & coll_event : coll_events) {
+                        CollisionManifold manifold = coll_event.manifold;
+                        for (int i=0; i<manifold.point_count; ++i) {
+                            Vector2 contact = manifold.points[i];
 
                             SDL_SetRenderDrawColorFloat(
                                     renderContext->renderer,
@@ -1062,10 +1121,11 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                             );
 
                     // manifold
-                    std::vector<CollisionManifold*> manifolds = getEntityCollisionManifolds(ent_id);
-                    for (CollisionManifold* manifold : manifolds) {
-                        for (int i=0; i<manifold->point_count; ++i) {
-                            Vector2 contact = manifold->points[i];
+                    std::vector<CollisionEvent> coll_events = getEntityCollisionManifolds(ent_id);
+                    for (auto& coll_event : coll_events) {
+                        CollisionManifold manifold = coll_event.manifold;
+                        for (int i=0; i<manifold.point_count; ++i) {
+                            Vector2 contact = manifold.points[i];
 
                             SDL_RenderLine(
                                     renderContext->renderer,
@@ -1087,8 +1147,8 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                             SDL_RenderLine(
                                     renderContext->renderer,
                                     contact.x, contact.y,
-                                    contact.x + manifold->normal.x * 32.0,
-                                    contact.y + manifold->normal.y * 32.0
+                                    contact.x + manifold.normal.x*manifold.penetration_depth,
+                                    contact.y + manifold.normal.y*manifold.penetration_depth
                                     );
                         }
                     }
@@ -1127,10 +1187,11 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                             points,
                             poly_coll->__polygon.vertex_counts+1);
                     // manifold
-                    std::vector<CollisionManifold*> manifolds = getEntityCollisionManifolds(ent_id);
-                    for (CollisionManifold* manifold : manifolds) {
-                        for (int i=0; i<manifold->point_count; ++i) {
-                            Vector2 contact = manifold->points[i];
+                    std::vector<CollisionEvent> coll_events = getEntityCollisionManifolds(ent_id);
+                    for (auto& coll_event : coll_events) {
+                        CollisionManifold manifold = coll_event.manifold;
+                        for (int i=0; i<manifold.point_count; ++i) {
+                            Vector2 contact = manifold.points[i];
 
                             SDL_SetRenderDrawColorFloat(
                                     renderContext->renderer,
@@ -1147,8 +1208,8 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                             SDL_RenderLine(
                                     renderContext->renderer,
                                     contact.x, contact.y,
-                                    contact.x + manifold->normal.x * 32.0,
-                                    contact.y + manifold->normal.y * 32.0
+                                    contact.x + manifold.normal.x*manifold.penetration_depth,
+                                    contact.y + manifold.normal.y*manifold.penetration_depth
                                     );
                         }
                     }
@@ -1157,6 +1218,19 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                     }
 
             }
+
+#ifdef PHYSICS_DEBUG_DRAW_SHOW_ENTITY_ID
+            SDL_SetRenderDrawColorFloat(
+                    renderContext->renderer,
+                    0.0, 1.0, 0.0, 1.0
+                    );
+            SDL_RenderDebugText(
+                    renderContext->renderer,
+                    coll->__transform.GlobalPosition().x, coll->__transform.GlobalPosition().y,
+                    std::string("ent id: ").append(std::to_string(coll->entity().id)).c_str()
+                    );
+#endif
+
         }
     }
 
