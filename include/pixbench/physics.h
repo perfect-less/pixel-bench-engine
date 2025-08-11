@@ -10,6 +10,32 @@
 #include <unordered_map>
 
 
+class Game;
+
+
+class PhysicsAPI {
+private:
+    Game* m_game{ nullptr };
+public:
+    float GRAVITY = 30.0;
+
+    /*
+     * cast a ray, returns the first contact point between the ray and collider in the game.
+     */
+    bool rayCast(Vector2 origin, Vector2 direction, float length);
+
+    /*
+     * cast a circle ray, returns the first contact point between the ray and collider in the game.
+     */
+    bool circleCast(Vector2 origin, Vector2 direction, float length, float radius);
+
+
+    void __setGame(Game* game) {
+        m_game = game;
+    }
+};
+
+
 class CollisionManifold {
 public:
     Vector2 normal = Vector2::RIGHT;

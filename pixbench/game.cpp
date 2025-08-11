@@ -102,12 +102,16 @@ Result<VoidResult, GameError> Game::Initialize() {
             );
 
     this->scriptSystem = std::make_shared<ScriptSystem>();
+    this->physicsSystem = std::make_shared<PhysicsSystem>();
     this->ecs_systems.push_back(std::make_shared<RenderingSystem>());
     this->ecs_systems.push_back(std::make_shared<AudioSystem>());
-    this->ecs_systems.push_back(std::make_shared<PhysicsSystem>());
+    this->ecs_systems.push_back(physicsSystem);
     this->ecs_systems.push_back(scriptSystem);
 
     this->isRunning = true;
+
+    // Physics
+    this->physics.__setGame(this);
 
     return Result<VoidResult, GameError>::Ok(VoidResult::empty);
 }

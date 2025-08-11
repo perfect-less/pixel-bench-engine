@@ -4,6 +4,7 @@
 
 #include "pixbench/engine_config.h"
 #include "pixbench/gameconfig.h"
+#include "pixbench/physics.h"
 #include "pixbench/renderer.h"
 #include "pixbench/audio.h"
 #include "pixbench/utils.h"
@@ -91,6 +92,9 @@ public:
     AudioContext* audioContext;                 //!< global audio context
     EntityManager* entityManager = nullptr;     //!< global entityManager, created when Game::Initialize() were called
 
+    PhysicsAPI physics;
+
+    std::shared_ptr<ISystem> physicsSystem = nullptr;
     std::shared_ptr<ISystem> scriptSystem = nullptr;    //!< script system
     std::vector<std::shared_ptr<ISystem>> ecs_systems;  //!< array of systems in ECS
 

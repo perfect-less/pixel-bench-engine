@@ -115,7 +115,7 @@ private:
     CollisionManifold m_manifold;
     EntityID m_entity;
 public:
-    bool is_static;                     //!< static-to-static collision will be ignored
+    bool is_static = true;              //!< static-to-static collision will be ignored
     float skin_depth = 1.0;             //!< skin depth for collision detection
     float __bounding_radius = 1.0;
     Transform __transform = Transform();
