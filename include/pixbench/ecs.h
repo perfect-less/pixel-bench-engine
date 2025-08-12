@@ -1286,6 +1286,8 @@ public:
     void setCollisionPair(EntityID ent_a, EntityID ent_b, CollisionManifold* manifold, EntityID ref_entity);
     void removeCollisionPair(EntityID ent_a, EntityID ent_b);
 
+    std::bitset<MAX_COMPONENTS> __getPhysicsComponentMask() { return m_physics_components_mask; }
+
     Result<VoidResult, GameError> Initialize(Game* game, EntityManager* entity_mgr) override;
     Result<VoidResult, GameError> FixedUpdate(double delta_time_s, EntityManager* entity_mgr) override; // Physics update
     Result<VoidResult, GameError> OnComponentAddedToEntity(const ComponentDataPayload* component_info, EntityID entity_id) override;

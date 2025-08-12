@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
+#include <memory>
 #include "pixbench/physics.h"
 
 
@@ -153,6 +154,92 @@ Vector2 intersectionBetween2Line(
 
     return Vector2(ix, iy);
 }
+
+
+// ========== Physics API ==========
+
+bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length) {
+
+    // TMP: Do 1 long line checks
+    // TODO: Break down into line segments checks.
+
+    if ( !this->m_game || !this->m_game->physicsSystem || !this->m_game->entityManager )
+        return false;
+
+    direction = direction.normalized();
+    Vector2 ray_origin = origin;
+    Vector2 ray_destination = origin + direction*length;
+
+    auto physics = std::static_pointer_cast<PhysicsSystem>(this->m_game->physicsSystem);
+    std::bitset<MAX_COMPONENTS> component_mask = physics->__getPhysicsComponentMask();
+
+    size_t hit_count = 0;
+    double min_distance;
+    Vector2 hit_point;
+    Vector2 hit_normal;
+    EntityID hit_ent;
+
+    for (size_t cindex=0; cindex<MAX_COMPONENTS; ++cindex) {
+        if (!(component_mask[cindex]))
+            continue; // skip non-collider components
+
+        std::bitset<MAX_COMPONENTS> mask;
+        mask.reset();
+        mask.set(cindex);
+        for (auto ent_id : EntityView(m_game->entityManager, mask, false)) {
+            auto collider = m_game->entityManager->getEntityComponentCasted<Collider>(
+                    ent_id, cindex);
+            const ColliderTag coltag = collider->getColliderTag();
+
+            switch (coltag) {
+                case COLTAG_Polygon:
+                    {
+                        PolygonCollider* coll = static_cast<PolygonCollider*>(collider);
+                        Vector2 coll_pos = coll->__transform.GlobalPosition();
+                        const double coll_rot = coll->__transform.rotation;
+                        for (size_t i=0; i<coll->__polygon.vertex_counts; ++i) {
+                            const Edge edge = coll->__polygon.getEdge(i, coll_pos, coll_rot);
+                            if (Vector2::dotProduct(direction, edge.normal) < 0.0)
+                                continue;
+                            Vector2 intersect_point = intersectionBetween2Line(
+                                    ray_origin, ray_destination,
+                                    edge.p1, edge.p2
+                                    );
+                            double projected_in_line = projectPointToLineCoordinate(
+                                    intersect_point, ray_origin, direction
+                                    );
+
+                            if (projected_in_line > 0.0 && projected_in_line < length
+                                && (
+                                    hit_count == 0 || projected_in_line < min_distance
+                                )) {
+                                min_distance = projected_in_line;
+                                hit_point = intersect_point;
+                                hit_normal = edge.normal;
+                                hit_ent = coll->entity();
+                            }
+                        }
+                        break;
+                    }
+                case COLTAG_Box:
+                    {
+                        BoxCollider* coll = static_cast<BoxCollider*>(collider);
+                        break;
+                    }
+                case COLTAG_Circle:
+                    {
+                        CircleCollider* coll = static_cast<CircleCollider*>(collider);
+                        break;
+                    }
+            }
+        }
+    }
+
+    return ( hit_count > 0 );
+}
+
+
+// ========== Collision ==========
 
 
 bool boxToBoxCollision(BoxCollider* box_1, BoxCollider* box_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
