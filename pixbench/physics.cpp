@@ -158,7 +158,7 @@ Vector2 intersectionBetween2Line(
 
 // ========== Physics API ==========
 
-bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length) {
+bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit) {
 
     // TMP: Do 1 long line checks
     // TODO: Break down into line segments checks.
@@ -235,7 +235,15 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length) {
         }
     }
 
-    return ( hit_count > 0 );
+    if ( hit_count == 0 )
+        return false;
+
+    // packing hit result
+    out__raycast_hit->normal = hit_normal;
+    out__raycast_hit->point  = hit_point;
+    out__raycast_hit->ent    = hit_ent;
+
+    return true;
 }
 
 

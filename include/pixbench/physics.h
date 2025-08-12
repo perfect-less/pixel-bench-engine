@@ -13,6 +13,19 @@
 class Game;
 
 
+class RaycastHit {
+public:
+    Vector2 point;
+    Vector2 normal;
+    EntityID ent;
+
+    RaycastHit() = default;
+
+    RaycastHit(Vector2 point, Vector2 normal, EntityID ent)
+        : point(point), normal(normal.normalized()), ent(ent) {}
+};
+
+
 class PhysicsAPI {
 private:
     Game* m_game{ nullptr };
@@ -22,12 +35,12 @@ public:
     /*
      * cast a ray, returns the first contact point between the ray and collider in the game.
      */
-    bool rayCast(Vector2 origin, Vector2 direction, float length);
+    bool rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit);
 
     /*
      * cast a circle ray, returns the first contact point between the ray and collider in the game.
      */
-    bool circleCast(Vector2 origin, Vector2 direction, float length, float radius);
+    bool circleCast(Vector2 origin, Vector2 direction, float length, float radius, RaycastHit* out__raycast_hit);
 
 
     void __setGame(Game* game) {
