@@ -1,5 +1,6 @@
 #include "pixbench/ecs.h"
 #include "pixbench/engine_config.h"
+#include "pixbench/renderer.h"
 #include "pixbench/vector2.h"
 #include <algorithm>
 #include <cmath>
@@ -138,6 +139,7 @@ Vector2 intersectionBetween2Line(
             (line1_p1.x-line1_p2.x)*(line2_p1.y-line2_p2.y) -
             (line1_p1.y-line1_p2.y)*(line2_p1.x-line2_p2.x)
             );
+
     const float left_num = (
             line1_p1.x*line1_p2.y - line1_p1.y*line1_p2.x
             );
@@ -158,7 +160,7 @@ Vector2 intersectionBetween2Line(
 
 // ========== Physics API ==========
 
-bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit) {
+bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit, RenderContext* renderContext) {
 
     // TMP: Do 1 long line checks
     // TODO: Break down into line segments checks.
@@ -167,14 +169,14 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
         return false;
 
     direction = direction.normalized();
-    Vector2 ray_origin = origin;
-    Vector2 ray_destination = origin + direction*length;
+    const Vector2 ray_origin = origin;
+    const Vector2 ray_destination = origin + direction*length;
 
     auto physics = std::static_pointer_cast<PhysicsSystem>(this->m_game->physicsSystem);
     std::bitset<MAX_COMPONENTS> component_mask = physics->__getPhysicsComponentMask();
 
     size_t hit_count = 0;
-    double min_distance;
+    float min_distance;
     Vector2 hit_point;
     Vector2 hit_normal;
     EntityID hit_ent;
@@ -195,21 +197,30 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
                 case COLTAG_Polygon:
                     {
                         PolygonCollider* coll = static_cast<PolygonCollider*>(collider);
-                        Vector2 coll_pos = coll->__transform.GlobalPosition();
+                        const Vector2 coll_pos = coll->__transform.GlobalPosition();
                         const double coll_rot = coll->__transform.rotation;
                         for (size_t i=0; i<coll->__polygon.vertex_counts; ++i) {
                             const Edge edge = coll->__polygon.getEdge(i, coll_pos, coll_rot);
-                            if (Vector2::dotProduct(direction, edge.normal) < 0.0)
+                            if (Vector2::dotProduct(direction, edge.normal) >= 0.0)
                                 continue;
-                            Vector2 intersect_point = intersectionBetween2Line(
+                            const Vector2 intersect_point = intersectionBetween2Line(
                                     ray_origin, ray_destination,
                                     edge.p1, edge.p2
                                     );
-                            double projected_in_line = projectPointToLineCoordinate(
+                            const double projected_in_line = projectPointToLineCoordinate(
                                     intersect_point, ray_origin, direction
                                     );
+                            const double projected_in_edge = projectPointToLineCoordinate(
+                                    intersect_point, edge.p1, (edge.p2 - edge.p1).normalized()
+                                    );
 
-                            if (projected_in_line > 0.0 && projected_in_line < length
+                            const bool is_within_both_lines =
+                                projected_in_line > 0.0 && projected_in_line < length
+                                &&
+                                projected_in_edge > 0.0 && projected_in_edge < (edge.p2 - edge.p1).magnitude()
+                                ;
+
+                            if (is_within_both_lines
                                 && (
                                     hit_count == 0 || projected_in_line < min_distance
                                 )) {
@@ -217,6 +228,7 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
                                 hit_point = intersect_point;
                                 hit_normal = edge.normal;
                                 hit_ent = coll->entity();
+                                ++hit_count;
                             }
                         }
                         break;
@@ -224,7 +236,43 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
                 case COLTAG_Box:
                     {
                         BoxCollider* coll = static_cast<BoxCollider*>(collider);
+                        Vector2 coll_pos = coll->__transform.GlobalPosition();
+                        double coll_rot = coll->__transform.rotation;
+                        for (size_t i=0; i<coll->__polygon.vertex_counts; ++i) {
+                            const Edge edge = coll->__polygon.getEdge(
+                                    i, coll_pos, coll_rot
+                                    );
+                            if (Vector2::dotProduct(direction, edge.normal) >= 0.0)
+                                continue;
+                            const Vector2 intersect_point = intersectionBetween2Line(
+                                    ray_origin, ray_destination,
+                                    edge.p1, edge.p2
+                                    );
+                            const double projected_in_line = projectPointToLineCoordinate(
+                                    intersect_point, ray_origin, direction
+                                    );
+                            const double projected_in_edge = projectPointToLineCoordinate(
+                                    intersect_point, edge.p1, (edge.p2 - edge.p1).normalized()
+                                    );
+
+                            const bool is_within_both_lines =
+                                projected_in_line > 0.0 && projected_in_line < length
+                                &&
+                                projected_in_edge > 0.0 && projected_in_edge < (edge.p2 - edge.p1).magnitude()
+                                ;
+
+                            if (is_within_both_lines &&
+                                (
+                                    hit_count == 0 || projected_in_line < min_distance
+                                )) {
+                                min_distance = projected_in_line;
+                                hit_point = intersect_point;
+                                hit_normal = edge.normal;
+                                hit_ent = coll->entity();
+                                ++hit_count;
+                            }
                         break;
+                        }
                     }
                 case COLTAG_Circle:
                     {
@@ -239,9 +287,11 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
         return false;
 
     // packing hit result
-    out__raycast_hit->normal = hit_normal;
-    out__raycast_hit->point  = hit_point;
-    out__raycast_hit->ent    = hit_ent;
+    if ( out__raycast_hit ) {
+        out__raycast_hit->normal = hit_normal;
+        out__raycast_hit->point  = hit_point;
+        out__raycast_hit->ent    = hit_ent;
+    }
 
     return true;
 }

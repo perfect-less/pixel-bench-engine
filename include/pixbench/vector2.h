@@ -23,15 +23,20 @@ public:
     Vector2 operator* (double s);
 
     Vector2 operator+ (const Vector2& v);
+    const Vector2 operator+ (const Vector2& v) const;
     Vector2 operator- (const Vector2& v);
+    const Vector2 operator- (const Vector2& v) const;
     Vector2& operator+= (const Vector2& v);
     Vector2& operator-= (const Vector2& v);
 
     double sqrMagnitude();
+    const double sqrMagnitude() const;
     double magnitude();
+    const double magnitude() const;
 
     void normalize();
     Vector2 normalized();
+    const Vector2 normalized() const;
 
     void rotate(double theta_rad);
     Vector2 rotated(double theta_rad);

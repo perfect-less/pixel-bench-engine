@@ -379,6 +379,12 @@ Result<VoidResult, GameError> RenderingSystem::PreDraw(RenderContext* renderCont
             else if (renderable->getRenderableTag() == RCTAG_Script) {
                 // TODO: check if drawable script rect inside the screen
                 CustomRenderable* custom_renderable = static_cast<CustomRenderable*>(renderable);
+
+                if ( custom_renderable->is_always_visible ) {
+                    ordered_renderables.push_back(renderable);
+                    continue;
+                }
+
                 const Vector2 render_position__scn = Vector2(
                         custom_renderable->offset.x + custom_renderable->transform->GlobalPosition().x,
                         custom_renderable->offset.y + custom_renderable->transform->GlobalPosition().y
@@ -891,8 +897,6 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
                         ))
                 continue;
 
-            std::cout << "COLL: ( " << coll_1.entity.id << ", " << coll_2->entity.id << " )" << std::endl;
-
             // pair checking
             CollisionManifold manifold = CollisionManifold(Vector2::RIGHT, 0.0);
             manifold.point_count = 0;
@@ -1084,6 +1088,21 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                             renderContext->renderer,
                             points,
                             5);
+                    for (size_t i=0; i<4; ++i) {
+                        const Edge edge = box_coll->__polygon.getEdge(
+                                i, box_coll->__transform.GlobalPosition(), box_coll->__transform.rotation
+                                );
+                        SDL_SetRenderDrawColorFloat(
+                                renderContext->renderer,
+                                0.0, 0.0, 1.0, 1.0
+                                );
+                        const Vector2 _start = 0.5 * (edge.p1 + edge.p2);
+                        const Vector2 _end = _start + 50.0 * edge.normal;
+                        SDL_RenderLine(
+                                renderContext->renderer,
+                                _start.x, _start.y, _end.x, _end.y
+                                );
+                    }
                     // manifold
                     std::vector<CollisionEvent> coll_events = getEntityCollisionManifolds(ent_id);
                     for (auto & coll_event : coll_events) {

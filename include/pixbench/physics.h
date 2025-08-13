@@ -3,6 +3,7 @@
 
 #include "pixbench/entity.h"
 #include "pixbench/engine_config.h"
+#include "pixbench/renderer.h"
 #include "pixbench/vector2.h"
 #include <cmath>
 #include <cstddef>
@@ -35,7 +36,7 @@ public:
     /*
      * cast a ray, returns the first contact point between the ray and collider in the game.
      */
-    bool rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit);
+    bool rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit, RenderContext* renderContext=nullptr);
 
     /*
      * cast a circle ray, returns the first contact point between the ray and collider in the game.

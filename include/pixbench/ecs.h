@@ -399,7 +399,8 @@ public:
 class CustomRenderable : public RenderableComponent {
 private:
 public:
-    Transform* transform = nullptr;
+    bool is_always_visible{ true };
+
     SDL_FRect offset = {
         0.0f,   // x
         0.0f,   // y
