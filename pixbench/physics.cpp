@@ -157,6 +157,40 @@ Vector2 intersectionBetween2Line(
     return Vector2(ix, iy);
 }
 
+double distancePointToInfiniteLine(const Vector2 point, const Vector2 line_p1, const Vector2 line_p2) {
+    return (projectPointToLine(point, line_p1, line_p2) - point).magnitude();
+}
+
+double distancePointToTerminatedLine(Vector2 point, Vector2 line_p1, Vector2 line_p2, Vector2* out_minimum_point = nullptr) {
+    const float min_x = std::min(line_p1.x , line_p2.x);
+    const float max_x = std::max(line_p1.x , line_p2.x);
+    const float min_y = std::min(line_p1.y , line_p2.y);
+    const float max_y = std::max(line_p1.y , line_p2.y);
+
+    Vector2 proj_point = projectPointToLine(point, line_p1, line_p2);
+    if ( proj_point.x < min_x || proj_point.x > max_x || proj_point.y < min_y || proj_point.y > max_y ) { // if outside of bound-box
+        const double dist_to_p1 = (line_p1 - point).magnitude();
+        const double dist_to_p2 = (line_p2 - point).magnitude();
+
+        double min_dist = dist_to_p2;
+        Vector2 min_point = line_p2;
+        if (dist_to_p1 < dist_to_p2) {
+            min_dist = dist_to_p1;
+            min_point = line_p1;
+        }
+
+        if ( out_minimum_point ) {
+            *out_minimum_point = min_point;
+        }
+        return min_dist;
+    }
+
+    if ( out_minimum_point ) {
+        *out_minimum_point = proj_point;
+    }
+    return (proj_point - point).magnitude();
+}
+
 
 // ========== Physics API ==========
 
@@ -277,7 +311,31 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
                     }
                 case COLTAG_Circle:
                     {
-                        CircleCollider* coll = static_cast<CircleCollider*>(collider);
+                        CircleCollider* circ_coll = static_cast<CircleCollider*>(collider);
+                        const Vector2 coll_pos = circ_coll->__transform.GlobalPosition();
+                        const double coll_rot = circ_coll->__transform.rotation;
+                        const double dist_to_ray = distancePointToInfiniteLine(coll_pos, ray_origin, ray_destination);
+                        if ( dist_to_ray > circ_coll->radius )
+                            break;
+
+                        const Vector2 center_point = projectPointToLine(coll_pos, ray_origin, ray_destination);
+
+                        if ( Vector2::dotProduct(center_point - ray_origin, direction) < 0.0 )
+                            break;
+
+                        const float k = std::sqrt(circ_coll->radius*circ_coll->radius - dist_to_ray*dist_to_ray);
+
+                        const Vector2 _hit_point = center_point - k*direction;
+                        const double hit_distance = (_hit_point - ray_origin).magnitude();
+
+                        if ( hit_count == 0 || hit_distance < min_distance ) {
+                            min_distance = hit_distance;
+                            hit_point = _hit_point;
+                            hit_normal = (_hit_point - coll_pos).normalized();
+                            hit_ent = circ_coll->entity();
+                            ++hit_count;
+                        }
+
                         break;
                     }
             }
@@ -505,40 +563,6 @@ bool boxToPolygonCollision(BoxCollider* box, PolygonCollider* polygon, Collision
 
 bool circleToCircleCollision(CircleCollider* circle_1, CircleCollider* circle_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
     return false;
-}
-
-double distancePointToInfiniteLine(Vector2 point, Vector2 line_p1, Vector2 line_p2) {
-    return (projectPointToLine(point, line_p1, line_p2) - point).magnitude();
-}
-
-double distancePointToTerminatedLine(Vector2 point, Vector2 line_p1, Vector2 line_p2, Vector2* out_minimum_point = nullptr) {
-    const float min_x = std::min(line_p1.x , line_p2.x);
-    const float max_x = std::max(line_p1.x , line_p2.x);
-    const float min_y = std::min(line_p1.y , line_p2.y);
-    const float max_y = std::max(line_p1.y , line_p2.y);
-
-    Vector2 proj_point = projectPointToLine(point, line_p1, line_p2);
-    if ( proj_point.x < min_x || proj_point.x > max_x || proj_point.y < min_y || proj_point.y > max_y ) { // if outside of bound-box
-        const double dist_to_p1 = (line_p1 - point).magnitude();
-        const double dist_to_p2 = (line_p2 - point).magnitude();
-
-        double min_dist = dist_to_p2;
-        Vector2 min_point = line_p2;
-        if (dist_to_p1 < dist_to_p2) {
-            min_dist = dist_to_p1;
-            min_point = line_p1;
-        }
-
-        if ( out_minimum_point ) {
-            *out_minimum_point = min_point;
-        }
-        return min_dist;
-    }
-
-    if ( out_minimum_point ) {
-        *out_minimum_point = proj_point;
-    }
-    return (proj_point - point).magnitude();
 }
 
 bool circleToPolygonCollision(CircleCollider* circle, PolygonCollider* polygon, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {

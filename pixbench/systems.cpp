@@ -1088,22 +1088,6 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                             renderContext->renderer,
                             points,
                             5);
-                    for (size_t i=0; i<4; ++i) {
-                        const Edge edge = box_coll->__polygon.getEdge(
-                                i, box_coll->__transform.GlobalPosition(), box_coll->__transform.rotation
-                                );
-                        SDL_SetRenderDrawColorFloat(
-                                renderContext->renderer,
-                                0.0, 0.0, 1.0, 1.0
-                                );
-                        const Vector2 _start = 0.5 * (edge.p1 + edge.p2);
-                        const Vector2 _end = _start + 50.0 * edge.normal;
-                        SDL_RenderLine(
-                                renderContext->renderer,
-                                _start.x, _start.y, _end.x, _end.y
-                                );
-                    }
-                    // manifold
                     std::vector<CollisionEvent> coll_events = getEntityCollisionManifolds(ent_id);
                     for (auto & coll_event : coll_events) {
                         CollisionManifold manifold = coll_event.manifold;
