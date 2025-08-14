@@ -196,7 +196,7 @@ public:
         centroid.y = y;
     }
 
-    Vector2 getVertex(size_t index, Vector2 offset=Vector2::ZERO, double rotation=0) {
+    Vector2 getVertex(size_t index, Vector2 offset=Vector2::ZERO, double rotation=0.0) {
         return vertex[index].rotated(rotation) + offset;
     }
 
@@ -204,10 +204,10 @@ public:
         return centroid.rotated(rotation) + offset;
     }
 
-    Edge getEdge(size_t index, Vector2 offset=Vector2::ZERO, double rotation=0) {
+    Edge getEdge(size_t index, Vector2 offset=Vector2::ZERO, double rotation=0.0) {
         Vector2 p1, p2, normal;
         
-        p1 = vertex[index];
+        p1 = vertex[index % vertex_counts];
         p2 = vertex[(index+1) % vertex_counts];
 
         if ( rotation != 0.0 ) {
