@@ -195,7 +195,7 @@ double distancePointToTerminatedLine(Vector2 point, Vector2 line_p1, Vector2 lin
 
 // ========== Physics API ==========
 
-bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit, RenderContext* renderContext) {
+bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit) {
 
     // TMP: Do 1 long line checks
     // TODO: Break down into line segments checks.
@@ -357,6 +357,91 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
 }
 
 
+bool circleCastCheckAgainsEdge(
+        const Vector2 ray_origin, const Vector2 ray_direction, const double ray_length, const double ray_radius,
+        const Edge edge,
+        Vector2* out__hit_point,
+        Vector2* out__hit_normal,
+        Vector2* out__hit_centroid
+        ) {
+    const Vector2 ray_destination = ray_origin + ray_length * ray_direction;
+
+    if (Vector2::dotProduct(ray_direction, edge.normal) > 0.0)
+        return false;
+
+    const double edge_length = (edge.p2 - edge.p1).magnitude();
+    const Vector2 edge_lengthwise_dir = (edge.p2 - edge.p1).normalized();
+    const Vector2 ray_offset = -ray_radius * edge.normal;
+    const Vector2 transposed_ray_origin = ray_origin + ray_offset;
+    const Vector2 transposed_ray_destination = ray_destination + ray_offset;
+    const Vector2 line_hit_point = intersectionBetween2Line(
+            transposed_ray_origin, transposed_ray_destination,
+            edge.p1, edge.p2
+            );
+    const double projected_line_hit_point = projectPointToLineCoordinate(
+            line_hit_point, edge.p1, edge_lengthwise_dir
+            );
+    Vector2 centroid = line_hit_point + ray_radius*edge.normal;
+    double hit_distance = ( line_hit_point - transposed_ray_origin ).magnitude();
+    if ( // check if line_hit_point is still within the edge
+            Vector2::dotProduct(centroid - ray_origin, ray_direction) > 0.0
+            && projected_line_hit_point > 0.0 && projected_line_hit_point < edge_length
+            && hit_distance > 0.0
+       ) {
+        *out__hit_point = line_hit_point;
+        *out__hit_normal = edge.normal;
+        *out__hit_centroid = centroid;
+        return true;
+    }
+    // otherwise check the edge endpoints
+    size_t viable_edge_point_counts = 0;
+    Vector2 points[2] = { edge.p1, edge.p2 };
+    double point_dists[2];
+    for (size_t e=0; e<2; ++e) {
+        const double d = distancePointToInfiniteLine(
+                points[e], ray_origin, ray_destination
+                );
+        if ( d > ray_radius )
+            continue;
+
+        const Vector2 colliding_point = points[e];
+        points[viable_edge_point_counts] = colliding_point;
+        point_dists[viable_edge_point_counts] = d;
+        viable_edge_point_counts++;
+    }
+
+    if ( viable_edge_point_counts == 0 ) {
+        return false;
+    }
+
+    Vector2 min_point = points[0];
+    double d = point_dists[0];
+    if ( viable_edge_point_counts == 2 ) {
+        const double p1_projected = projectPointToLineCoordinate(points[0], ray_origin, ray_direction);
+        const double p2_projected = projectPointToLineCoordinate(points[1], ray_origin, ray_direction);
+        if ( p2_projected < p1_projected ) {
+            min_point = points[1];
+            d = point_dists[1];
+        }
+    }
+
+    const double k = std::sqrt(ray_radius*ray_radius - d*d);
+    centroid = projectPointToLine(min_point, ray_origin, ray_destination)
+        - k*ray_direction
+        ;
+
+    hit_distance = (centroid - ray_origin).magnitude();
+
+    if (Vector2::dotProduct(centroid - ray_origin, ray_direction) > 0.0) {
+        *out__hit_normal = (centroid - min_point).normalized();
+        *out__hit_point = min_point;
+        *out__hit_centroid = centroid;
+        return true;
+    }
+    return false;
+}
+
+
 bool PhysicsAPI::circleCast(Vector2 origin, Vector2 direction, float length, float radius, RaycastHit* out__raycast_hit) {
 
     // TMP: Do 1 long line checks
@@ -396,15 +481,6 @@ bool PhysicsAPI::circleCast(Vector2 origin, Vector2 direction, float length, flo
             switch (coltag) {
                 case COLTAG_Polygon:
                     {
-                        // circle cast agains edge
-                        // 001 -> move raycast r distance opposing the direction of edge normal
-                        // 002 -> calculate intersection point (I)
-                        // 003 -> if ( I ) inside the edge:
-                        // 004 ->   return I
-                        // 005 -> projects edge's p1 and p2 into original ray to get distance to line (d1 & d2)
-                        // 006 -> if (d1 > r and d2 > r)
-                        // 007 ->   return nil
-                        // 008 -> calculate p that result in closest centroid point
                         PolygonCollider* poly_coll = static_cast<PolygonCollider*>(collider);
                         const Vector2 coll_pos = poly_coll->__transform.GlobalPosition();
                         const double coll_rot = poly_coll->__transform.rotation;
@@ -413,90 +489,67 @@ bool PhysicsAPI::circleCast(Vector2 origin, Vector2 direction, float length, flo
                             const Edge edge = poly_coll->__polygon.getEdge(
                                     i, coll_pos, coll_rot);
 
-                            if (Vector2::dotProduct(direction, edge.normal) > 0.0)
-                                continue;
-
-                            const double edge_length = (edge.p2 - edge.p1).magnitude();
-                            const Vector2 edge_lengthwise_dir = (1.0 / edge_length) * (edge.p2 - edge.p1);
-                            const Vector2 ray_offset = -radius * edge.normal;
-                            const Vector2 transposed_ray_origin = ray_origin + ray_offset;
-                            const Vector2 transposed_ray_destination = ray_destination + ray_offset;
-                            const Vector2 line_hit_point = intersectionBetween2Line(
-                                    transposed_ray_origin, transposed_ray_destination,
-                                    edge.p1, edge.p2
-                                    );
-                            const double projected_line_hit_point = projectPointToLineCoordinate(
-                                    line_hit_point, edge.p1, edge_lengthwise_dir
-                                    );
-                            double hit_distance = ( line_hit_point - transposed_ray_origin ).magnitude();
-                            if ( // check if line_hit_point is still within the edge
-                                projected_line_hit_point > 0.0 && projected_line_hit_point < edge_length
-                                && (
-                                    hit_count == 0 || hit_distance < min_distance
-                                    )
+                            Vector2 out__hit_point;
+                            Vector2 out__hit_normal;
+                            Vector2 out__hit_centroid;
+                            if ( !circleCastCheckAgainsEdge(
+                                        ray_origin, direction, length, radius,
+                                        edge,
+                                        &out__hit_point, &out__hit_normal, &out__hit_centroid
+                                        )
                                ) {
-                                min_distance = hit_distance;
-                                hit_normal = edge.normal;
-                                hit_point = line_hit_point;
-                                hit_ent = ent_id;
-                                break;
-                            }
-                            // otherwise check the edge endpoints
-                            size_t viable_edge_point_counts = 0;
-                            Vector2 points[2] = { edge.p1, edge.p2 };
-                            double point_dists[2];
-                            for (size_t e=0; e<2; ++e) {
-                                const double d = distancePointToInfiniteLine(
-                                        points[e], ray_origin, ray_destination
-                                        );
-                                if ( d > radius )
-                                    continue;
-
-                                const Vector2 colliding_point = points[e];
-                                points[viable_edge_point_counts] = colliding_point;
-                                point_dists[viable_edge_point_counts] = d;
-                                viable_edge_point_counts++;
-                            }
-
-                            if ( viable_edge_point_counts == 0 ) {
                                 continue;
                             }
 
-                            Vector2 min_point = points[0];
-                            double d = point_dists[0];
-                            if ( viable_edge_point_counts == 2 ) {
-                                const double p1_projected = projectPointToLineCoordinate(points[0], ray_origin, direction);
-                                const double p2_projected = projectPointToLineCoordinate(points[1], ray_origin, direction);
-                                if ( p2_projected < p1_projected ) {
-                                    min_point = points[1];
-                                    d = point_dists[1];
-                                }
-                            }
-
-                            const double k = std::sqrt(radius*radius - d*d);
-                            const Vector2 centroid = projectPointToLine(min_point, ray_origin, ray_destination)
-                                - k*direction
-                                ;
-                            hit_distance = (centroid - ray_origin).magnitude();
-
+                            const double hit_distance = (out__hit_centroid - ray_origin).magnitude();
                             if ( hit_count == 0 || hit_distance < min_distance ) {
                                 min_distance = hit_distance;
-                                hit_normal = (centroid - min_point).normalized();
-                                hit_point = min_point;
+                                hit_point = out__hit_point;
+                                hit_normal = out__hit_normal;
                                 hit_ent = ent_id;
+                                ++hit_count;
                             }
                         }
                     }
                     break;
                 case COLTAG_Box:
                     {
+                        BoxCollider* box_coll = static_cast<BoxCollider*>(collider);
+                        const Vector2 coll_pos = box_coll->__transform.GlobalPosition();
+                        const double coll_rot = box_coll->__transform.rotation;
+
+                        for (size_t i=0; i<4; ++i) {
+                            const Edge edge = box_coll->__polygon.getEdge(
+                                    i, coll_pos, coll_rot);
+
+                            Vector2 out__hit_point;
+                            Vector2 out__hit_normal;
+                            Vector2 out__hit_centroid;
+                            if ( !circleCastCheckAgainsEdge(
+                                        ray_origin, direction, length, radius,
+                                        edge,
+                                        &out__hit_point, &out__hit_normal, &out__hit_centroid
+                                        )
+                               ) {
+                                continue;
+                            }
+
+                            const double hit_distance = (out__hit_centroid - ray_origin).magnitude();
+                            if ( hit_count == 0 || hit_distance < min_distance ) {
+                                min_distance = hit_distance;
+                                hit_point = out__hit_point;
+                                hit_normal = out__hit_normal;
+                                hit_ent = ent_id;
+                                ++hit_count;
+                            }
+                        }
                     }
                     break;
                 case COLTAG_Circle:
                     {
                         CircleCollider* circ_coll = static_cast<CircleCollider*>(collider);
                         const Vector2 coll_pos = circ_coll->__transform.GlobalPosition();
-                        const double coll_rot = circ_coll->__transform.rotation;
+                        // const double coll_rot = circ_coll->__transform.rotation;
                         const double d = distancePointToInfiniteLine(
                                 coll_pos, ray_origin, ray_destination
                                 );
@@ -509,13 +562,17 @@ bool PhysicsAPI::circleCast(Vector2 origin, Vector2 direction, float length, flo
                         const double combined_radius = radius + circ_coll->radius;
                         const double k = std::sqrt(combined_radius*combined_radius - d*d);
                         const Vector2 centroid_point = projected_circle_center - k*direction;
+                        if (Vector2::dotProduct(centroid_point - ray_origin, direction) < 0.0) {
+                            break;
+                        }
                         const double hit_distance = (centroid_point - ray_origin).magnitude();
 
-                        if ( hit_count == 0 || hit_distance < min_distance ) {
+                        if ( hit_distance > 0.0 && (hit_count == 0 || hit_distance < min_distance) ) {
                             min_distance = hit_distance;
                             hit_normal = (centroid_point - coll_pos).normalized();
                             hit_point = coll_pos + hit_normal*circ_coll->radius;
                             hit_ent = ent_id;
+                            ++hit_count;
                         }
                     }
                     break;

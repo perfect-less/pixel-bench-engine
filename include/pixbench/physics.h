@@ -36,7 +36,7 @@ public:
     /*
      * cast a ray, returns the first contact point between the ray and collider in the game.
      */
-    bool rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit, RenderContext* renderContext=nullptr);
+    bool rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit);
 
     /*
      * cast a circle ray, returns the first contact point between the ray and collider in the game.
