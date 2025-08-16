@@ -219,8 +219,23 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
         return false;
 
     direction = direction.normalized();
+    const float ray_length = length;
+
+#ifdef RAYCAST_SEGMENT_LENGTH
+    const size_t segment_count = std::ceil(ray_length/RAYCAST_SEGMENT_LENGTH);
+    for (size_t _s=0; _s<segment_count; ++_s) {
+
+    const float segment_length = std::min(ray_length - (float)(_s*RAYCAST_SEGMENT_LENGTH), (float)RAYCAST_SEGMENT_LENGTH);
+    length = segment_length;
+
+    const Vector2 ray_origin = origin + _s * RAYCAST_SEGMENT_LENGTH * direction;
+    const Vector2 ray_destination = ray_origin +
+        segment_length * direction
+        ;
+#else
     const Vector2 ray_origin = origin;
     const Vector2 ray_destination = origin + direction*length;
+#endif
 
     auto physics = std::static_pointer_cast<PhysicsSystem>(this->m_game->physicsSystem);
     std::bitset<MAX_COMPONENTS> component_mask = physics->__getPhysicsComponentMask();
@@ -375,17 +390,25 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
         }
     }
 
+#ifndef RAYCAST_SEGMENT_LENGTH
     if ( hit_count == 0 )
         return false;
+#endif
 
     // packing hit result
-    if ( out__raycast_hit ) {
+    if ( hit_count > 0 && out__raycast_hit ) {
         out__raycast_hit->normal = hit_normal;
         out__raycast_hit->point  = hit_point;
         out__raycast_hit->ent    = hit_ent;
     }
 
-    return true;
+    if ( hit_count > 0 )
+        return true;
+
+#ifdef RAYCAST_SEGMENT_LENGTH
+    }
+    return false;
+#endif
 }
 
 
