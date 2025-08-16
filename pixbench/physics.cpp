@@ -22,6 +22,21 @@ int imod(int a, int b) {
 }
 
 
+void getAABoxOfCollider(
+        Collider* coll,
+        Vector2* out__min_point,
+        Vector2* out__max_point
+        ) {
+    const Vector2 pos = coll->__transform.GlobalPosition();
+    *out__min_point = Vector2(
+            pos.x - coll->__bounding_radius, pos.y - coll->__bounding_radius
+            );
+    *out__max_point = Vector2(
+            pos.x + coll->__bounding_radius, pos.y + coll->__bounding_radius
+            );
+}
+
+
 bool axisAlignedBoundingSquareCheck(
         const Vector2* b1_pos, float b1_radius,
         const Vector2* b2_pos, float b2_radius
@@ -228,6 +243,23 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
                     ent_id, cindex);
             if ( !collider )
                 continue;
+
+            // aabb precheck
+            Vector2 out__min_point;
+            Vector2 out__max_point;
+            getAABoxOfCollider(collider, &out__min_point, &out__max_point);
+            const float ray_min_x = std::min(ray_origin.x, ray_destination.x) - RAYCAST_AABBOX_MARGIN;
+            const float ray_min_y = std::min(ray_origin.y, ray_destination.y) - RAYCAST_AABBOX_MARGIN;
+            const float ray_max_x = std::max(ray_origin.x, ray_destination.x) + RAYCAST_AABBOX_MARGIN;
+            const float ray_max_y = std::max(ray_origin.y, ray_destination.y) + RAYCAST_AABBOX_MARGIN;
+            const float combined_length_x = std::max(ray_max_x, out__max_point.x) - std::min(ray_min_x, out__min_point.x);
+            const float combined_length_y = std::max(ray_max_y, out__max_point.y) - std::min(ray_min_y, out__min_point.y);
+            const float additive_length_x = (ray_max_x - ray_min_x) + (out__max_point.x - out__min_point.x);
+            const float additive_length_y = (ray_max_y - ray_min_y) + (out__max_point.y - out__min_point.y);
+
+            if (combined_length_x > additive_length_x || combined_length_y > additive_length_y) {
+                continue;
+            }
 
             const ColliderTag coltag = collider->getColliderTag();
 
@@ -475,6 +507,24 @@ bool PhysicsAPI::circleCast(Vector2 origin, Vector2 direction, float length, flo
                     ent_id, cindex);
             if ( !collider )
                 continue;
+
+            // aabb precheck
+            const float bbox_margin = ( radius > RAYCAST_AABBOX_MARGIN ) ? radius : RAYCAST_AABBOX_MARGIN;
+            Vector2 out__min_point;
+            Vector2 out__max_point;
+            getAABoxOfCollider(collider, &out__min_point, &out__max_point);
+            const float ray_min_x = std::min(ray_origin.x, ray_destination.x) - bbox_margin;
+            const float ray_min_y = std::min(ray_origin.y, ray_destination.y) - bbox_margin;
+            const float ray_max_x = std::max(ray_origin.x, ray_destination.x) + bbox_margin;
+            const float ray_max_y = std::max(ray_origin.y, ray_destination.y) + bbox_margin;
+            const float combined_length_x = std::max(ray_max_x, out__max_point.x) - std::min(ray_min_x, out__min_point.x);
+            const float combined_length_y = std::max(ray_max_y, out__max_point.y) - std::min(ray_min_y, out__min_point.y);
+            const float additive_length_x = (ray_max_x - ray_min_x) + (out__max_point.x - out__min_point.x);
+            const float additive_length_y = (ray_max_y - ray_min_y) + (out__max_point.y - out__min_point.y);
+
+            if (combined_length_x > additive_length_x || combined_length_y > additive_length_y) {
+                continue;
+            }
 
             const ColliderTag coltag = collider->getColliderTag();
 
