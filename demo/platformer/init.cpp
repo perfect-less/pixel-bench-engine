@@ -4,6 +4,7 @@
 #include "pixbench/resource.h"
 #include "pixbench/utils.h"
 #include "pixbench/vector2.h"
+#include "include/chars.h"
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_joystick.h>
 #include <SDL3/SDL_keyboard.h>
@@ -120,6 +121,8 @@ void Game::InitializeGame(Game* game) {
 
     // destroying entity
     // ent_mgr->destroyEntity(ent);
+
+    spawnPlayableCharacter(ent_mgr);
 
     std::cout << "InitializeGame done" << std::endl;
 }
