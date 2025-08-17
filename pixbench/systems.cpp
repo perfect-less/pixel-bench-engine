@@ -379,6 +379,12 @@ Result<VoidResult, GameError> RenderingSystem::PreDraw(RenderContext* renderCont
             else if (renderable->getRenderableTag() == RCTAG_Script) {
                 // TODO: check if drawable script rect inside the screen
                 CustomRenderable* custom_renderable = static_cast<CustomRenderable*>(renderable);
+
+                if ( custom_renderable->is_always_visible ) {
+                    ordered_renderables.push_back(renderable);
+                    continue;
+                }
+
                 const Vector2 render_position__scn = Vector2(
                         custom_renderable->offset.x + custom_renderable->transform->GlobalPosition().x,
                         custom_renderable->offset.y + custom_renderable->transform->GlobalPosition().y
@@ -891,8 +897,6 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
                         ))
                 continue;
 
-            std::cout << "COLL: ( " << coll_1.entity.id << ", " << coll_2->entity.id << " )" << std::endl;
-
             // pair checking
             CollisionManifold manifold = CollisionManifold(Vector2::RIGHT, 0.0);
             manifold.point_count = 0;
@@ -1084,7 +1088,6 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                             renderContext->renderer,
                             points,
                             5);
-                    // manifold
                     std::vector<CollisionEvent> coll_events = getEntityCollisionManifolds(ent_id);
                     for (auto & coll_event : coll_events) {
                         CollisionManifold manifold = coll_event.manifold;

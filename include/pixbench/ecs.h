@@ -115,7 +115,7 @@ private:
     CollisionManifold m_manifold;
     EntityID m_entity;
 public:
-    bool is_static;                     //!< static-to-static collision will be ignored
+    bool is_static = true;              //!< static-to-static collision will be ignored
     float skin_depth = 1.0;             //!< skin depth for collision detection
     float __bounding_radius = 1.0;
     Transform __transform = Transform();
@@ -399,7 +399,8 @@ public:
 class CustomRenderable : public RenderableComponent {
 private:
 public:
-    Transform* transform = nullptr;
+    bool is_always_visible{ true };
+
     SDL_FRect offset = {
         0.0f,   // x
         0.0f,   // y
@@ -1285,6 +1286,8 @@ public:
     std::vector<CollisionEvent> getEntityCollisionManifolds(EntityID ent_id);
     void setCollisionPair(EntityID ent_a, EntityID ent_b, CollisionManifold* manifold, EntityID ref_entity);
     void removeCollisionPair(EntityID ent_a, EntityID ent_b);
+
+    std::bitset<MAX_COMPONENTS> __getPhysicsComponentMask() { return m_physics_components_mask; }
 
     Result<VoidResult, GameError> Initialize(Game* game, EntityManager* entity_mgr) override;
     Result<VoidResult, GameError> FixedUpdate(double delta_time_s, EntityManager* entity_mgr) override; // Physics update

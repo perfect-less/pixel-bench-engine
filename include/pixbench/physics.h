@@ -3,11 +3,51 @@
 
 #include "pixbench/entity.h"
 #include "pixbench/engine_config.h"
+#include "pixbench/renderer.h"
 #include "pixbench/vector2.h"
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
 #include <unordered_map>
+
+
+class Game;
+
+
+class RaycastHit {
+public:
+    Vector2 point;
+    Vector2 normal;
+    EntityID ent;
+
+    RaycastHit() = default;
+
+    RaycastHit(Vector2 point, Vector2 normal, EntityID ent)
+        : point(point), normal(normal.normalized()), ent(ent) {}
+};
+
+
+class PhysicsAPI {
+private:
+    Game* m_game{ nullptr };
+public:
+    float GRAVITY = 30.0;
+
+    /*
+     * cast a ray, returns the first contact point between the ray and collider in the game.
+     */
+    bool rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit);
+
+    /*
+     * cast a circle ray, returns the first contact point between the ray and collider in the game.
+     */
+    bool circleCast(Vector2 origin, Vector2 direction, float length, float radius, RaycastHit* out__raycast_hit);
+
+
+    void __setGame(Game* game) {
+        m_game = game;
+    }
+};
 
 
 class CollisionManifold {
@@ -156,7 +196,7 @@ public:
         centroid.y = y;
     }
 
-    Vector2 getVertex(size_t index, Vector2 offset=Vector2::ZERO, double rotation=0) {
+    Vector2 getVertex(size_t index, Vector2 offset=Vector2::ZERO, double rotation=0.0) {
         return vertex[index].rotated(rotation) + offset;
     }
 
@@ -164,10 +204,10 @@ public:
         return centroid.rotated(rotation) + offset;
     }
 
-    Edge getEdge(size_t index, Vector2 offset=Vector2::ZERO, double rotation=0) {
+    Edge getEdge(size_t index, Vector2 offset=Vector2::ZERO, double rotation=0.0) {
         Vector2 p1, p2, normal;
         
-        p1 = vertex[index];
+        p1 = vertex[index % vertex_counts];
         p2 = vertex[(index+1) % vertex_counts];
 
         if ( rotation != 0.0 ) {
