@@ -14,7 +14,7 @@ project(
 fs = import('fs')
 
 # Includes and dependencies
-engine_includes = [include_directories('include/')]
+engine_includes = include_directories('include/')
 sdl3_dep = dependency('sdl3')
 sdl3_mixer_dep = dependency('sdl3_mixer')
 
@@ -34,6 +34,7 @@ engine_sources = [
   ]
 
 sources = []
+includes = []
 
 # Subdir inclusions
 subdir('test/')  # unit tests
@@ -52,8 +53,8 @@ else
 endif
 
 # Game executable
-includes = engine_includes
 sources += engine_sources
+includes += engine_includes
 executable(
   'game', sources,
   dependencies: [sdl3_dep, sdl3_mixer_dep],
