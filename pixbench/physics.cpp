@@ -361,7 +361,7 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
                     {
                         CircleCollider* circ_coll = static_cast<CircleCollider*>(collider);
                         const Vector2 coll_pos = circ_coll->__transform.GlobalPosition();
-                        const double coll_rot = circ_coll->__transform.rotation;
+                        // const double coll_rot = circ_coll->__transform.rotation;
                         const double dist_to_ray = distancePointToInfiniteLine(coll_pos, ray_origin, ray_destination);
                         if ( dist_to_ray > circ_coll->radius )
                             break;
@@ -376,7 +376,7 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
                         const Vector2 _hit_point = center_point - k*direction;
                         const double hit_distance = (_hit_point - ray_origin).magnitude();
 
-                        if ( hit_count == 0 || hit_distance < min_distance ) {
+                        if ( hit_distance <= length && ( hit_count == 0 || hit_distance < min_distance) ) {
                             min_distance = hit_distance;
                             hit_point = _hit_point;
                             hit_normal = (_hit_point - coll_pos).normalized();
@@ -407,8 +407,8 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
 
 #ifdef RAYCAST_SEGMENT_LENGTH
     }
-    return false;
 #endif
+    return false;
 }
 
 
@@ -640,7 +640,7 @@ bool PhysicsAPI::circleCast(Vector2 origin, Vector2 direction, float length, flo
                         }
                         const double hit_distance = (centroid_point - ray_origin).magnitude();
 
-                        if ( hit_distance > 0.0 && (hit_count == 0 || hit_distance < min_distance) ) {
+                        if ( hit_distance > 0.0 && hit_distance <= length && (hit_count == 0 || hit_distance < min_distance) ) {
                             min_distance = hit_distance;
                             hit_normal = (centroid_point - coll_pos).normalized();
                             hit_point = coll_pos + hit_normal*circ_coll->radius;

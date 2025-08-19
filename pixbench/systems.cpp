@@ -1060,6 +1060,7 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                 case COLTAG_Box: 
                     {
                     BoxCollider* box_coll = static_cast<BoxCollider*>(coll);
+                    const Vector2 coll_pos = box_coll->__transform.GlobalPosition();
                     if ( isEntityColliding(ent_id) ) {
                         SDL_SetRenderDrawColorFloat(
                                 renderContext->renderer,
@@ -1074,10 +1075,12 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                     }
                     SDL_FPoint points[5];
                     for (int i=0; i<4; ++i) {
-                        const Vector2 vert = box_coll->__polygon.getVertex(
-                                i,
-                                box_coll->__transform.GlobalPosition(),
-                                box_coll->__transform.rotation
+                        const Vector2 vert = sceneToScreenSpace(renderContext,
+                                box_coll->__polygon.getVertex(
+                                    i,
+                                    coll_pos,
+                                    box_coll->__transform.rotation
+                                    )
                                 );
                         points[i] = { vert.x, vert.y };
                         if ( i == 0 ) {
@@ -1092,7 +1095,9 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                     for (auto & coll_event : coll_events) {
                         CollisionManifold manifold = coll_event.manifold;
                         for (int i=0; i<manifold.point_count; ++i) {
-                            Vector2 contact = manifold.points[i];
+                            Vector2 contact = sceneToScreenSpace(
+                                    renderContext, manifold.points[i]
+                                    );
 
                             SDL_SetRenderDrawColorFloat(
                                     renderContext->renderer,
@@ -1125,14 +1130,17 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                     }
                     const size_t point_counts = 16;
                     SDL_FPoint circle_points[point_counts+1];
-                    for (int i=0; i<point_counts; i++) {
+                    for (int i=0; i<point_counts+1; i++) {
                         const float xp = circ_coll->radius*std::cos(i*2.0*M_PI/point_counts);
                         const float yp = circ_coll->radius*std::sin(i*2.0*M_PI/point_counts);
-                        circle_points[i] = { xp + circ_pos.x, yp + circ_pos.y };
+                        const Vector2 circle_point = sceneToScreenSpace(renderContext,
+                                Vector2(xp + circ_pos.x, yp + circ_pos.y)
+                                );
+                        circle_points[i] = { circle_point.x, circle_point.y };
                      }
-                    circle_points[point_counts] = { circ_coll->radius + circ_pos.x, circ_pos.y };
                     
-                    SDL_RenderPoint(renderContext->renderer, circ_pos.x, circ_pos.y);
+                    const Vector2 _center = sceneToScreenSpace(renderContext, circ_pos);
+                    SDL_RenderPoint(renderContext->renderer, _center.x, _center.y);
                     SDL_RenderLines(
                             renderContext->renderer, circle_points, point_counts+1
                             );
@@ -1142,7 +1150,7 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                     for (auto& coll_event : coll_events) {
                         CollisionManifold manifold = coll_event.manifold;
                         for (int i=0; i<manifold.point_count; ++i) {
-                            Vector2 contact = manifold.points[i];
+                            Vector2 contact = sceneToScreenSpace(renderContext, manifold.points[i]);
 
                             SDL_RenderLine(
                                     renderContext->renderer,
@@ -1175,6 +1183,7 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                 case COLTAG_Polygon:
                     {
                     PolygonCollider* poly_coll = static_cast<PolygonCollider*>(coll);
+                    const Vector2 coll_pos = poly_coll->__transform.GlobalPosition();
                     if ( isEntityColliding(ent_id) ) {
                         SDL_SetRenderDrawColorFloat(
                                 renderContext->renderer,
@@ -1189,11 +1198,14 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                     }
                     SDL_FPoint points[MAX_POLYGON_VERTEX+1];
                     for (int i=0; i<poly_coll->__polygon.vertex_counts; ++i) {
-                        const Vector2 vert = poly_coll->__polygon.getVertex(
-                                i,
-                                poly_coll->__transform.GlobalPosition(),
-                                poly_coll->__transform.rotation
-                                );
+                        const Vector2 vert =
+                            sceneToScreenSpace(renderContext,
+                                    poly_coll->__polygon.getVertex(
+                                        i,
+                                        coll_pos,
+                                        poly_coll->__transform.rotation
+                                        )
+                                    );
                         points[i] = { vert.x, vert.y };
                         if ( i == 0 ) {
                             points[poly_coll->__polygon.vertex_counts] = { vert.x, vert.y };
@@ -1208,7 +1220,7 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                     for (auto& coll_event : coll_events) {
                         CollisionManifold manifold = coll_event.manifold;
                         for (int i=0; i<manifold.point_count; ++i) {
-                            Vector2 contact = manifold.points[i];
+                            Vector2 contact = sceneToScreenSpace(renderContext, manifold.points[i]);
 
                             SDL_SetRenderDrawColorFloat(
                                     renderContext->renderer,
