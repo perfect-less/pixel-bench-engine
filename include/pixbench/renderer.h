@@ -87,6 +87,12 @@ Vector2 camToScreenSpace(
         );
 
 
+Vector2 sceneToScreenSpace(
+        RenderContext* renderContext,
+        Vector2 point
+        );
+
+
 /* Sprite Sheet */
 class SpriteSheet {
     float start_x, start_y;

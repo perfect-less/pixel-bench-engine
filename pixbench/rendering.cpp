@@ -1,4 +1,5 @@
 #include "pixbench/renderer.h"
+#include "pixbench/vector2.h"
 
 
 SDL_FRect sceneToCamSpace(
@@ -50,4 +51,13 @@ Vector2 camToScreenSpace(
             point.x * scale_x,
             point.y * scale_y
             );
+}
+
+
+Vector2 sceneToScreenSpace(
+        RenderContext* renderContext,
+        Vector2 point
+        ) {
+    const Vector2 _intermediary = sceneToCamSpace(renderContext, point);
+    return camToScreenSpace(renderContext, _intermediary);
 }
