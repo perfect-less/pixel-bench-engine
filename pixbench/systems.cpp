@@ -929,6 +929,14 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
                                     &is_body_1_the_ref
                                     );
                             break;
+                        case COLTAG_Capsule:
+                            is_colliding = boxToCapsuleCollision(
+                                    static_cast<BoxCollider*>(coll_1.collider),
+                                    static_cast<CapsuleCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
                     }
                     break;
                 case COLTAG_Circle:
@@ -954,6 +962,14 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
                             is_colliding = circleToPolygonCollision(
                                     static_cast<CircleCollider*>(coll_1.collider),
                                     static_cast<PolygonCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                        case COLTAG_Capsule:
+                            is_colliding = circleToCapsuleCollision(
+                                    static_cast<CircleCollider*>(coll_1.collider),
+                                    static_cast<CapsuleCollider*>(coll_2->collider),
                                     &manifold,
                                     &is_body_1_the_ref
                                     );
@@ -984,6 +1000,53 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
                             is_colliding = polygonToPolygonCollision(
                                     static_cast<PolygonCollider*>(coll_1.collider),
                                     static_cast<PolygonCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                        case COLTAG_Capsule:
+                            is_colliding = polygonToCapsuleCollision(
+                                    static_cast<PolygonCollider*>(coll_1.collider),
+                                    static_cast<CapsuleCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                    }
+                    break;
+                case COLTAG_Capsule:
+                    switch (coll_2->collider_tag) {
+                        case COLTAG_Box:
+                            is_colliding = boxToCapsuleCollision(
+                                    static_cast<BoxCollider*>(coll_2->collider),
+                                    static_cast<CapsuleCollider*>(coll_1.collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            is_body_1_the_ref = !is_body_1_the_ref;
+                            break;
+                        case COLTAG_Circle:
+                            is_colliding = circleToCapsuleCollision(
+                                    static_cast<CircleCollider*>(coll_2->collider),
+                                    static_cast<CapsuleCollider*>(coll_1.collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            is_body_1_the_ref = !is_body_1_the_ref;
+                            break;
+                        case COLTAG_Polygon:
+                            is_colliding = polygonToCapsuleCollision(
+                                    static_cast<PolygonCollider*>(coll_2->collider),
+                                    static_cast<CapsuleCollider*>(coll_1.collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            is_body_1_the_ref = !is_body_1_the_ref;
+                            break;
+                        case COLTAG_Capsule:
+                            is_colliding = capsuleToCapsuleCollision(
+                                    static_cast<CapsuleCollider*>(coll_1.collider),
+                                    static_cast<CapsuleCollider*>(coll_2->collider),
                                     &manifold,
                                     &is_body_1_the_ref
                                     );

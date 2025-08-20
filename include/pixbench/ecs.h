@@ -93,6 +93,7 @@ public:
 enum ColliderTag {
     COLTAG_Box,
     COLTAG_Circle,
+    COLTAG_Capsule,
     COLTAG_Polygon
 };
 
@@ -224,6 +225,23 @@ public:
     
     ColliderTag getColliderTag() const override {
         return COLTAG_Circle;
+    };
+};
+
+
+class CapsuleCollider : public Collider {
+public:
+    float radius = 16.0;            //!< capsule cap radius
+    float length = 32.0;            //!< capsule length (outside the radius)
+
+    void setSize(float r, float l) {
+        this->radius = r;
+        this->length = l;
+        this->__bounding_radius = l/2.0 + r + 2.0; // 2.0 of padding
+    }
+
+    ColliderTag getColliderTag() const override {
+        return COLTAG_Capsule;
     };
 };
 

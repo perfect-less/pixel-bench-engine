@@ -870,6 +870,10 @@ bool boxToPolygonCollision(BoxCollider* box, PolygonCollider* polygon, Collision
     return is_colliding;
 }
 
+bool boxToCapsuleCollision(BoxCollider* box, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
+    return false;
+}
+
 
 bool circleToCircleCollision(CircleCollider* circle_1, CircleCollider* circle_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
     return false;
