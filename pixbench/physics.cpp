@@ -870,10 +870,6 @@ bool boxToPolygonCollision(BoxCollider* box, PolygonCollider* polygon, Collision
     return is_colliding;
 }
 
-bool boxToCapsuleCollision(BoxCollider* box, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
-    return false;
-}
-
 
 bool circleToCircleCollision(CircleCollider* circle_1, CircleCollider* circle_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
     return false;
@@ -1253,6 +1249,84 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
     manifold__out->setPoints(manifold_points, manifold_point_counts);
 
     return true;
+}
+
+
+bool polygonToCapsuleCollision(PolygonCollider* polygon, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
+    const Vector2 caps_pos = capsule->__transform.GlobalPosition();
+    const double caps_rot = capsule->__transform.rotation;
+
+    const Vector2 caps_p1 = caps_pos + Vector2::UP.rotated(caps_rot) * (capsule->length / 2.0);
+    const Vector2 caps_p2 = caps_pos + Vector2::DOWN.rotated(caps_rot) * (capsule->length / 2.0);
+
+    const Vector2 poly_pos = polygon->__transform.GlobalPosition();
+    const double poly_rot = polygon->__transform.rotation;
+    for (size_t i=0; i<polygon->__polygon.vertex_counts; ++i) {
+        __b1_edges_buff[i] = polygon->__polygon.getEdge(i, poly_pos, poly_rot);
+        __b1_verts_buff[i] = polygon->__polygon.getVertex(i, poly_pos, poly_rot);
+    }
+
+    // separating axis theorem
+    size_t overlap_count = 0;
+    double min_penetration;
+    Vector2 hit_point;
+
+    for (size_t i=0; i<polygon->__polygon.vertex_counts; ++i) {
+        const Edge edge = __b1_edges_buff[i];
+        double proj_cap_min = projectPointToLineCoordinate(
+                caps_p1, edge.p1, edge.normal
+                );
+        double proj_cap_max = projectPointToLineCoordinate(
+                caps_p2, edge.p1, edge.normal
+                );
+        if (proj_cap_min > proj_cap_max) {
+            const double _temp = proj_cap_min;
+            proj_cap_min = proj_cap_max;
+            proj_cap_max = _temp;
+        }
+
+        double proj_poly_min;
+        double proj_poly_max;
+        for (size_t j=0; j<polygon->__polygon.vertex_counts; ++j) {
+            const double projected_point = projectPointToLineCoordinate(
+                    __b1_verts_buff[j], edge.p1, edge.normal
+                    );
+            if ( j == 0 ) {
+                proj_poly_min = projected_point;
+                proj_poly_max = projected_point;
+                continue;
+            }
+
+            if (projected_point > proj_poly_max)
+                proj_poly_max = projected_point;
+
+            if (projected_point < proj_poly_min)
+                proj_poly_min = projected_point;
+        }
+
+        // overlap check
+        const double combined_length = std::max(proj_cap_max, proj_poly_max) - std::min(proj_cap_min, proj_poly_min);
+        const double cap_length = proj_cap_max - proj_cap_min;
+        const double poly_length = proj_poly_max - proj_poly_min;
+        if ( combined_length > cap_length + poly_length ) {
+            return false;
+        }
+
+        const double penetration_depth = cap_length + poly_length - combined_length;
+
+        if ( overlap_count == 0 || ( penetration_depth < min_penetration ) ) {
+            min_penetration = penetration_depth;
+            ++overlap_count;
+        }
+    }
+
+
+    return true;
+}
+
+
+bool boxToCapsuleCollision(BoxCollider* box, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
+    return false;
 }
 
 
