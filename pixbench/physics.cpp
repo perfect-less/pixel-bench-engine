@@ -208,6 +208,27 @@ double distancePointToTerminatedLine(Vector2 point, Vector2 line_p1, Vector2 lin
 }
 
 
+bool isPointBetweenArbitraryBBoxCorner(
+        const Vector2 point,
+        const Vector2 c1,
+        const Vector2 c2
+        ) {
+
+    const float min_x = std::min(c1.x, c2.x);
+    const float max_x = std::max(c1.x, c2.x);
+    const float min_y = std::min(c1.y, c2.y);
+    const float max_y = std::max(c1.y, c2.y);
+
+    const bool is_outside_of_x = (
+            point.x < min_x || point.x > max_x
+            );
+    const bool is_outside_of_y = (
+            point.y < min_y || point.y > max_y
+            );
+    return !(is_outside_of_x || is_outside_of_y);
+}
+
+
 // ========== Physics API ==========
 
 bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit) {
@@ -1252,6 +1273,22 @@ bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* poly
 }
 
 
+bool isProjectedPointLiesWithinLine(
+        const Vector2 point,
+        const Vector2 p1, const Vector2 p2,
+        Vector2* out__projected_point=nullptr
+        ) {
+    const Vector2 proj_point = projectPointToLine(
+            point, p1, p2
+            );
+    if (out__projected_point) {
+        *out__projected_point = proj_point;
+    }
+
+    return isPointBetweenArbitraryBBoxCorner(proj_point, p1, p2);
+}
+
+
 bool polygonToCapsuleCollision(PolygonCollider* polygon, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
     const Vector2 caps_pos = capsule->__transform.GlobalPosition();
     const double caps_rot = capsule->__transform.rotation;
@@ -1266,66 +1303,171 @@ bool polygonToCapsuleCollision(PolygonCollider* polygon, CapsuleCollider* capsul
         __b1_verts_buff[i] = polygon->__polygon.getVertex(i, poly_pos, poly_rot);
     }
 
-    // separating axis theorem
-    size_t overlap_count = 0;
-    double min_penetration;
-    Vector2 hit_point;
-
+    // manifold hunting | minimum penetration
+    size_t penetration_count = 0;
+    size_t contact_counts = 0;
+    Vector2 contact_points[2];
+    Vector2 contact_normal;
+    double max_penetration;
     for (size_t i=0; i<polygon->__polygon.vertex_counts; ++i) {
+        double _max_pen_depth;
+        double manifold_candidate_depths[8];
+        Vector2 manifold_candidate_points[8];
+        Vector2 manifold_candidate_normal[8];
+        size_t manifold_candidate_point_count = 0;
         const Edge edge = __b1_edges_buff[i];
-        double proj_cap_min = projectPointToLineCoordinate(
-                caps_p1, edge.p1, edge.normal
-                );
-        double proj_cap_max = projectPointToLineCoordinate(
-                caps_p2, edge.p1, edge.normal
-                );
-        if (proj_cap_min > proj_cap_max) {
-            const double _temp = proj_cap_min;
-            proj_cap_min = proj_cap_max;
-            proj_cap_max = _temp;
-        }
 
-        double proj_poly_min;
-        double proj_poly_max;
-        for (size_t j=0; j<polygon->__polygon.vertex_counts; ++j) {
-            const double projected_point = projectPointToLineCoordinate(
-                    __b1_verts_buff[j], edge.p1, edge.normal
-                    );
-            if ( j == 0 ) {
-                proj_poly_min = projected_point;
-                proj_poly_max = projected_point;
-                continue;
+        // project points to other's line
+        const Vector2 points[4] = {caps_p1, caps_p2, edge.p1, edge.p2};
+        Vector2 p1, p2;
+        for (size_t j=0; j<4; ++j) {
+            if (j < 2) {
+                p1 = edge.p1;
+                p2 = edge.p2;
+            }
+            else
+            {
+                p1 = caps_p1;
+                p2 = caps_p2;
             }
 
-            if (projected_point > proj_poly_max)
-                proj_poly_max = projected_point;
+            Vector2 projected_point;
+            if ( !isProjectedPointLiesWithinLine(points[j], p1, p2, &projected_point) )
+                continue;
+            double _penetration_depth = capsule->radius - (projected_point - points[j]).magnitude();
+            if ( !(_penetration_depth > 0.0) )
+                continue;
 
-            if (projected_point < proj_poly_min)
-                proj_poly_min = projected_point;
+            if (j < 2) {
+                manifold_candidate_points[manifold_candidate_point_count] = projected_point;
+                manifold_candidate_normal[manifold_candidate_point_count] = (projected_point - points[j]).normalized();
+                manifold_candidate_depths[manifold_candidate_point_count] = _penetration_depth;
+            }
+            else {
+                manifold_candidate_points[manifold_candidate_point_count] = points[j];
+                manifold_candidate_normal[manifold_candidate_point_count] = (points[j] - projected_point).normalized();
+                manifold_candidate_depths[manifold_candidate_point_count] = _penetration_depth;
+            }
+
+            ++manifold_candidate_point_count;
         }
 
-        // overlap check
-        const double combined_length = std::max(proj_cap_max, proj_poly_max) - std::min(proj_cap_min, proj_poly_min);
-        const double cap_length = proj_cap_max - proj_cap_min;
-        const double poly_length = proj_poly_max - proj_poly_min;
-        if ( combined_length > cap_length + poly_length ) {
-            return false;
+        if (manifold_candidate_point_count == 0) {
+            // checks end points against each other
+            // each caps agains e1 and e2
+            Vector2 ref_points[2] = {caps_p1, caps_p2};
+            for (size_t _i=0; _i<2; ++_i) {
+                const double pen_depth_e1 = capsule->radius - (ref_points[_i] - edge.p1).magnitude();
+                const double pen_depth_e2 = capsule->radius - (ref_points[_i] - edge.p2).magnitude();
+
+                if (pen_depth_e1 > 0.0) {
+                    manifold_candidate_points[manifold_candidate_point_count] = edge.p1;
+                    manifold_candidate_normal[manifold_candidate_point_count] = (edge.p1 - ref_points[_i]).normalized();
+                    manifold_candidate_depths[manifold_candidate_point_count] = pen_depth_e1;
+                    ++manifold_candidate_point_count;
+                }
+                if (pen_depth_e2 > 0.0) {
+                    manifold_candidate_points[manifold_candidate_point_count] = edge.p2;
+                    manifold_candidate_normal[manifold_candidate_point_count] = (edge.p2 - ref_points[_i]).normalized();
+                    manifold_candidate_depths[manifold_candidate_point_count] = pen_depth_e2;
+                    ++manifold_candidate_point_count;
+                }
+            }
         }
 
-        const double penetration_depth = cap_length + poly_length - combined_length;
-
-        if ( overlap_count == 0 || ( penetration_depth < min_penetration ) ) {
-            min_penetration = penetration_depth;
-            ++overlap_count;
+        if (manifold_candidate_point_count == 0) {
+            continue;
         }
+
+        // handle manifold candidates
+        // pick the deepest candidate
+        if (manifold_candidate_point_count >= 2) {
+            // sort the first two, DESC
+            if (manifold_candidate_depths[0] < manifold_candidate_depths[1]) {
+                const double _tmp_depth = manifold_candidate_depths[0];
+                const Vector2 _tmp_point = manifold_candidate_points[0];
+                const Vector2 _tmp_normal = manifold_candidate_normal[0];
+
+                manifold_candidate_depths[0] = manifold_candidate_depths[1];
+                manifold_candidate_points[0] = manifold_candidate_points[1];
+                manifold_candidate_normal[0] = manifold_candidate_normal[1];
+
+                manifold_candidate_depths[1] = _tmp_depth;
+                manifold_candidate_points[1] = _tmp_point;
+                manifold_candidate_normal[1] = _tmp_normal;
+            }
+
+            for (size_t _k=2; _k<manifold_candidate_point_count; ++_k) {
+                const bool larger_than_r1 = (manifold_candidate_depths[_k] > manifold_candidate_depths[0]);
+                const bool larger_than_r2 = (manifold_candidate_depths[_k] > manifold_candidate_depths[1]);
+
+                if (larger_than_r1 && larger_than_r2) {
+                    manifold_candidate_depths[1] = manifold_candidate_depths[0];
+                    manifold_candidate_points[1] = manifold_candidate_points[0];
+                    manifold_candidate_normal[1] = manifold_candidate_normal[0];
+
+                    manifold_candidate_depths[0] = manifold_candidate_depths[_k];
+                    manifold_candidate_points[0] = manifold_candidate_points[_k];
+                    manifold_candidate_normal[0] = manifold_candidate_normal[_k];
+                }
+                else if (larger_than_r2) {
+                    manifold_candidate_depths[1] = manifold_candidate_depths[_k];
+                    manifold_candidate_points[1] = manifold_candidate_points[_k];
+                    manifold_candidate_normal[1] = manifold_candidate_normal[_k];
+                }
+            }
+
+            if (manifold_candidate_point_count > 2) {
+                manifold_candidate_point_count = 2;
+            }
+        }
+
+        double avg_penetration_depth = 0.0;
+        for (size_t k=0; k<manifold_candidate_point_count; ++k) {
+            avg_penetration_depth += manifold_candidate_depths[k];
+        }
+        avg_penetration_depth /= manifold_candidate_point_count;
+
+        if (penetration_count == 0 || avg_penetration_depth > max_penetration || manifold_candidate_point_count > contact_counts) {
+            max_penetration = avg_penetration_depth;
+            contact_counts = manifold_candidate_point_count;
+            Vector2 added_normals = Vector2::ZERO;
+            for (size_t _k=0; _k<contact_counts; ++_k) {
+                contact_points[_k] = manifold_candidate_points[_k];
+                added_normals += manifold_candidate_normal[_k];
+            }
+            contact_normal = (added_normals * (1.0 / contact_counts)).normalized();
+            ++penetration_count;
+        }
+
     }
 
+    if (penetration_count == 0) {
+        return false;
+    }
+
+    // manifold packaging
+    manifold__out->setPoints(contact_points, contact_counts);
+    manifold__out->penetration_depth = max_penetration;
+    manifold__out->normal = contact_normal;
+
+    *is_body_1_the_ref = false;
 
     return true;
 }
 
 
 bool boxToCapsuleCollision(BoxCollider* box, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
+    return false;
+}
+
+
+bool circleToCapsuleCollision(CircleCollider* circle, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
+    return false;
+}
+
+
+bool capsuleToCapsuleCollision(CapsuleCollider* capsule_1, CapsuleCollider* capsule_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
     return false;
 }
 
