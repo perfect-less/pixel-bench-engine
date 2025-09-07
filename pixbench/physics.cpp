@@ -1458,7 +1458,16 @@ bool polygonToCapsuleCollision(PolygonCollider* polygon, CapsuleCollider* capsul
 
 
 bool boxToCapsuleCollision(BoxCollider* box, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
-    return false;
+    PolygonCollider poly_1;
+    poly_1.setPolygon(box->__polygon);
+    poly_1.__transform = box->__transform;
+    const bool is_colliding = polygonToCapsuleCollision(
+            &poly_1,
+            capsule,
+            manifold__out,
+            is_body_1_the_ref
+            );
+    return is_colliding;
 }
 
 
