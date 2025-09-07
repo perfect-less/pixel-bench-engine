@@ -1472,7 +1472,51 @@ bool boxToCapsuleCollision(BoxCollider* box, CapsuleCollider* capsule, Collision
 
 
 bool circleToCapsuleCollision(CircleCollider* circle, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
-    return false;
+    double distance;
+
+    const Vector2 circ_pos = circle->__transform.GlobalPosition();
+
+    const double caps_rot = capsule->__transform.rotation;
+    const Vector2 caps_pos = capsule->__transform.GlobalPosition();
+    const Vector2 caps_p1 = caps_pos + capsule->radius*Vector2::UP.rotated(caps_rot);
+    const Vector2 caps_p2 = caps_pos + capsule->radius*Vector2::DOWN.rotated(caps_rot);
+
+    Vector2 projected_point;
+    const bool is_projected = isProjectedPointLiesWithinLine(circ_pos, caps_p1, caps_p2, &projected_point);
+
+    if (is_projected) {
+        distance = (projected_point - circ_pos).magnitude();
+        if ( distance > (circle->radius + capsule->radius) ) {
+            return false;
+        }
+    } else {
+        const double dist_to_p1 = (caps_p1 - circ_pos).magnitude();
+        const double dist_to_p2 = (caps_p2 - circ_pos).magnitude();
+
+        if (dist_to_p1 < dist_to_p2) {
+            distance = dist_to_p1;
+            projected_point = caps_p1;
+        } else {
+            distance = dist_to_p2;
+            projected_point = caps_p2;
+        }
+
+        if ( distance > (circle->radius + capsule->radius) ) {
+            return false;
+        }
+    }
+
+    // calculate manifold
+    const Vector2 contact_normal = (projected_point - circ_pos).normalized();
+    const Vector2 contact_point = circ_pos +  circle->radius*contact_normal;
+
+    manifold__out->normal = contact_normal;
+    manifold__out->setPoints(&contact_point, 1);
+    manifold__out->penetration_depth = (circle->radius + capsule->radius) - distance;
+
+    *is_body_1_the_ref = true;
+
+    return true;
 }
 
 
