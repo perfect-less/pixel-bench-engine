@@ -1310,7 +1310,6 @@ bool polygonToCapsuleCollision(PolygonCollider* polygon, CapsuleCollider* capsul
     Vector2 contact_normal;
     double max_penetration;
     for (size_t i=0; i<polygon->__polygon.vertex_counts; ++i) {
-        double _max_pen_depth;
         double manifold_candidate_depths[8];
         Vector2 manifold_candidate_points[8];
         Vector2 manifold_candidate_normal[8];
@@ -1521,7 +1520,130 @@ bool circleToCapsuleCollision(CircleCollider* circle, CapsuleCollider* capsule, 
 
 
 bool capsuleToCapsuleCollision(CapsuleCollider* capsule_1, CapsuleCollider* capsule_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
-    return false;
+
+    const double caps1_rot = capsule_1->__transform.rotation;
+    const double caps2_rot = capsule_2->__transform.rotation;
+    const Vector2 caps1_pos = capsule_1->__transform.GlobalPosition();
+    const Vector2 caps2_pos = capsule_2->__transform.GlobalPosition();
+    const Vector2 caps1_p1 = caps1_pos + (capsule_1->length/2.0)*Vector2::UP.rotated(caps1_rot);
+    const Vector2 caps1_p2 = caps1_pos + (capsule_1->length/2.0)*Vector2::DOWN.rotated(caps1_rot);
+    const Vector2 caps2_p1 = caps2_pos + (capsule_2->length/2.0)*Vector2::UP.rotated(caps2_rot);
+    const Vector2 caps2_p2 = caps2_pos + (capsule_2->length/2.0)*Vector2::DOWN.rotated(caps2_rot);
+    const double combined_radius = capsule_1->radius + capsule_2->radius;
+
+    struct ManifoldCandidate {
+        Vector2 contact;
+        Vector2 normal;
+        double depth;
+    };
+    ManifoldCandidate manifold_candidates[8];
+    size_t manifold_candidate_count = 0;
+    const Vector2 points[4] = {caps1_p1, caps1_p2, caps2_p1, caps2_p2};
+    Vector2 p1, p2;
+    for (size_t i=0; i<4; ++i) {
+        if (i < 2) {
+            p1 = caps2_p1;
+            p2 = caps2_p2;
+        }
+        else
+        {
+            p1 = caps1_p1;
+            p2 = caps1_p2;
+        }
+
+        Vector2 projected_point;
+        const bool is_projected = isProjectedPointLiesWithinLine(points[i], p1, p2, &projected_point);
+
+        if ( is_projected && (projected_point - points[i]).magnitude() < (capsule_1->radius + capsule_2->radius) ) {
+            const size_t j = manifold_candidate_count;
+            if (i < 2) {
+                const Vector2 normal = (projected_point - points[i]).normalized();
+                manifold_candidates[j].contact = projected_point - capsule_2->radius*normal;
+                manifold_candidates[j].depth = combined_radius - (projected_point - points[i]).magnitude();
+                manifold_candidates[j].normal = normal;
+            } else {
+                const Vector2 normal = (points[i] - projected_point).normalized();
+                manifold_candidates[j].contact = points[i] - capsule_1->radius*normal;
+                manifold_candidates[j].depth = combined_radius - (projected_point - points[i]).magnitude();
+                manifold_candidates[j].normal = normal;
+            }
+            ++manifold_candidate_count;
+        }
+    }
+
+    if ( manifold_candidate_count == 0 ) {
+        for (size_t _i=0; _i<2; ++_i) {
+            const double pen_depth_e1 = combined_radius - (points[_i] - caps2_p1).magnitude();
+            const double pen_depth_e2 = combined_radius - (points[_i] - caps2_p2).magnitude();
+
+            if (pen_depth_e1 > 0.0) {
+                const Vector2 normal = (caps2_p1 - points[_i]).normalized();
+                manifold_candidates[manifold_candidate_count].contact = caps2_p1 - capsule_2->radius*normal;
+                manifold_candidates[manifold_candidate_count].normal = normal;
+                manifold_candidates[manifold_candidate_count].depth = pen_depth_e1;
+                ++manifold_candidate_count;
+            }
+            if (pen_depth_e2 > 0.0) {
+                const Vector2 normal = (caps2_p2 - points[_i]).normalized();
+                manifold_candidates[manifold_candidate_count].contact = caps2_p2 -capsule_2->radius*normal;
+                manifold_candidates[manifold_candidate_count].normal = normal;
+                manifold_candidates[manifold_candidate_count].depth = pen_depth_e2;
+                ++manifold_candidate_count;
+            }
+        }
+    }
+
+    if ( manifold_candidate_count == 0 ) {
+        return false;
+    }
+
+    // find the two deepest manifold candidates
+    if ( manifold_candidate_count >= 2 ) {
+        if ( manifold_candidates[0].depth < manifold_candidates[1].depth ) {
+            ManifoldCandidate _tmp_manifold=  manifold_candidates[0];
+            manifold_candidates[0] = manifold_candidates[1];
+            manifold_candidates[1] = _tmp_manifold;
+        }
+
+        for (size_t _k=2; _k<manifold_candidate_count; ++_k) {
+            const bool larger_than_r1 = (manifold_candidates[_k].depth > manifold_candidates[0].depth);
+            const bool larger_than_r2 = (manifold_candidates[_k].depth > manifold_candidates[1].depth);
+
+            if (larger_than_r1 && larger_than_r2) {
+                manifold_candidates[1] = manifold_candidates[0];
+                manifold_candidates[0] = manifold_candidates[_k];
+            }
+            else if (larger_than_r2) {
+                manifold_candidates[1] = manifold_candidates[_k];
+            }
+        }
+
+        if (manifold_candidate_count > 2) {
+            manifold_candidate_count = 2;
+        }
+    }
+
+    double avg_penetration_depth = 0.0;
+    for (size_t k=0; k<manifold_candidate_count; ++k) {
+        avg_penetration_depth += manifold_candidates[k].depth;
+    }
+    avg_penetration_depth /= manifold_candidate_count;
+
+    Vector2 contact_normal = Vector2::ZERO;
+    Vector2 manifold_points[2];
+    for (size_t i=0; i<manifold_candidate_count; ++i) {
+        manifold_points[i] = manifold_candidates[i].contact;
+        contact_normal += manifold_candidates[i].normal;
+    }
+    contact_normal = (contact_normal * (1.0 / manifold_candidate_count)).normalized();
+
+    manifold__out->setPoints(manifold_points, manifold_candidate_count);
+    manifold__out->penetration_depth = avg_penetration_depth;
+    manifold__out->normal = contact_normal;
+
+    *is_body_1_the_ref = true;
+
+    return true;
 }
 
 
