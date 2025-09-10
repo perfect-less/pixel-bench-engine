@@ -1563,7 +1563,7 @@ bool capsuleToCapsuleCollision(CapsuleCollider* capsule_1, CapsuleCollider* caps
                 manifold_candidates[j].normal = normal;
             } else {
                 const Vector2 normal = (points[i] - projected_point).normalized();
-                manifold_candidates[j].contact = points[i] - capsule_1->radius*normal;
+                manifold_candidates[j].contact = points[i] - capsule_2->radius*normal;
                 manifold_candidates[j].depth = combined_radius - (projected_point - points[i]).magnitude();
                 manifold_candidates[j].normal = normal;
             }
