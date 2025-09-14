@@ -748,6 +748,78 @@ bool PhysicsAPI::circleCast(Vector2 origin, Vector2 direction, float length, flo
                         }
                     }
                     break;
+                case COLTAG_Capsule:
+                    {
+                        CapsuleCollider* caps_coll = static_cast<CapsuleCollider*>(collider);
+                        const Vector2 caps_pos = caps_coll->__transform.GlobalPosition();
+                        const double caps_rot = caps_coll->__transform.rotation;
+
+                        const Vector2 caps_p1 = caps_pos + Vector2::UP.rotated(caps_rot) * (caps_coll->length / 2.0);
+                        const Vector2 caps_p2 = caps_pos + Vector2::DOWN.rotated(caps_rot) * (caps_coll->length / 2.0);
+                        const Vector2 caps_norm = (caps_p2 - caps_p1).rotated(M_PI / 2.0).normalized();
+
+                        // #1 check ray_line against forwarded caps_line
+                        const Vector2 forward_dir = (Vector2::dotProduct(caps_norm, direction) < 0.0)
+                            ? caps_norm : -1.0 * caps_norm
+                            ;
+                        const Vector2 forward_offset = caps_coll->radius * forward_dir;
+                        const Vector2 fwd_p1 = caps_p1 + forward_offset;
+                        const Vector2 fwd_p2 = caps_p2 + forward_offset;
+
+                        const Edge edge = {fwd_p1, fwd_p2, forward_dir};
+
+                        Vector2 out__hit_point;
+                        Vector2 out__hit_normal;
+                        Vector2 out__hit_centroid;
+                        if ( circleCastCheckAgainsEdge(
+                                    ray_origin, direction, length, radius,
+                                    edge,
+                                    &out__hit_point, &out__hit_normal, &out__hit_centroid
+                                    )
+                           ) {
+                            const double hit_distance = (out__hit_centroid - ray_origin).magnitude();
+                            if ( hit_distance <= length && ( hit_count == 0 || hit_distance < min_distance) ) {
+                                min_distance = hit_distance;
+                                hit_point = out__hit_point;
+                                hit_normal = out__hit_normal;
+                                hit_ent = caps_coll->entity();
+                                ++hit_count;
+                                // break;
+                            }
+                        }
+
+                        // #2 checks agains each capsules circle
+                        const Vector2 caps_points[2] = {caps_p1, caps_p2};
+                        for (size_t i=0; i<2; ++i) {
+                            const Vector2 caps_point = caps_points[i];
+                            const double d = distancePointToInfiniteLine(
+                                    caps_point, ray_origin, ray_destination
+                                    );
+                            if ( d > (radius + caps_coll->radius) )
+                                continue;
+
+                            const Vector2 projected_circle_center = projectPointToLine(
+                                    caps_point, ray_origin, ray_destination
+                                    );
+                            const double combined_radius = radius + caps_coll->radius;
+                            const double k = std::sqrt(combined_radius*combined_radius - d*d);
+                            const Vector2 centroid_point = projected_circle_center - k*direction;
+                            if (Vector2::dotProduct(centroid_point - ray_origin, direction) < 0.0) {
+                                break;
+                            }
+                            const double hit_distance = (centroid_point - ray_origin).magnitude();
+
+                            if ( hit_distance > 0.0 && hit_distance <= length && (hit_count == 0 || hit_distance < min_distance) ) {
+                                min_distance = hit_distance;
+                                hit_normal = (centroid_point - caps_point).normalized();
+                                hit_point = caps_point + hit_normal*caps_coll->radius;
+                                hit_ent = ent_id;
+                                ++hit_count;
+                            }
+                        }
+
+                    }
+                    break;
             }
         }
     }
