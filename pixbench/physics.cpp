@@ -7,7 +7,9 @@
 #include <cstddef>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <memory>
+#include <regex>
 #include "pixbench/physics.h"
 
 
@@ -149,12 +151,20 @@ Vector2 intersectionBetween2Line(
         Vector2 line1_p1,
         Vector2 line1_p2,
         Vector2 line2_p1,
-        Vector2 line2_p2
+        Vector2 line2_p2,
+        bool* out__is_intersecting = nullptr
         ) {
     const float denum = (
             (line1_p1.x-line1_p2.x)*(line2_p1.y-line2_p2.y) -
             (line1_p1.y-line1_p2.y)*(line2_p1.x-line2_p2.x)
             );
+
+    if ( denum == 0 ) {
+        if (out__is_intersecting) {
+            *out__is_intersecting = false;
+        }
+        return Vector2::ZERO;
+    }
 
     const float left_num = (
             line1_p1.x*line1_p2.y - line1_p1.y*line1_p2.x
@@ -169,6 +179,10 @@ Vector2 intersectionBetween2Line(
     const float iy = (
             left_num*(line2_p1.y - line2_p2.y) - (line1_p1.y - line1_p2.y)*right_num
             ) / denum;
+
+    if (out__is_intersecting) {
+        *out__is_intersecting = true;
+    }
 
     return Vector2(ix, iy);
 }
@@ -403,6 +417,70 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
                             hit_normal = (_hit_point - coll_pos).normalized();
                             hit_ent = circ_coll->entity();
                             ++hit_count;
+                        }
+
+                        break;
+                    }
+                case COLTAG_Capsule:
+                    {
+                        CapsuleCollider* caps_coll = static_cast<CapsuleCollider*>(collider);
+                        const Vector2 caps_pos = caps_coll->__transform.GlobalPosition();
+                        const double caps_rot = caps_coll->__transform.rotation;
+
+                        const Vector2 caps_p1 = caps_pos + Vector2::UP.rotated(caps_rot) * (caps_coll->length / 2.0);
+                        const Vector2 caps_p2 = caps_pos + Vector2::DOWN.rotated(caps_rot) * (caps_coll->length / 2.0);
+                        const Vector2 caps_norm = (caps_p2 - caps_p1).rotated(M_PI / 2.0).normalized();
+
+                        // #1 check ray_line against forwarded caps_line
+                        const Vector2 forward_dir = (Vector2::dotProduct(caps_norm, direction) < 0.0)
+                            ? caps_norm : -1.0 * caps_norm
+                            ;
+                        const Vector2 forward_offset = caps_coll->radius * forward_dir;
+                        const Vector2 fwd_p1 = caps_p1 + forward_offset;
+                        const Vector2 fwd_p2 = caps_p2 + forward_offset;
+
+                        bool is_intersecting;
+                        const Vector2 intersect_point = intersectionBetween2Line(fwd_p1, fwd_p2, ray_origin, ray_destination, &is_intersecting);
+                        const double intersect_in_line = projectPointToLineCoordinate(intersect_point, fwd_p1, (fwd_p2 - fwd_p1).normalized());
+                        const bool is_within_caps_line = intersect_in_line >= 0.0 && intersect_in_line <= caps_coll->length;
+                        const bool is_intersect_infront_of_ray = Vector2::dotProduct((intersect_point - ray_origin), direction) > 0.0;
+                        if ( is_intersecting && is_intersect_infront_of_ray && is_within_caps_line ) {
+                            const double hit_distance = (intersect_point - ray_origin).magnitude();
+                            if ( hit_distance <= length && ( hit_count == 0 || hit_distance < min_distance) ) {
+                                min_distance = hit_distance;
+                                hit_point = intersect_point;
+                                hit_normal = forward_dir;
+                                hit_ent = caps_coll->entity();
+                                ++hit_count;
+                                break;
+                            }
+                        }
+
+                        // #2 checks agains each capsules circle
+                        const Vector2 caps_points[2] = {caps_p1, caps_p2};
+                        for (size_t i=0; i<2; ++i) {
+                            const Vector2 caps_point = caps_points[i];
+                            const double dist_to_ray = distancePointToInfiniteLine(caps_point, ray_origin, ray_destination);
+
+                            if ( dist_to_ray > caps_coll->radius )
+                                continue;
+
+                            const Vector2 center_point = projectPointToLine(caps_point, ray_origin, ray_destination);
+
+                            if ( Vector2::dotProduct(center_point - ray_origin, direction) < 0.0 )
+                                continue;
+
+                            const float k = std::sqrt(caps_coll->radius*caps_coll->radius - dist_to_ray*dist_to_ray);
+
+                            const Vector2 _hit_point = center_point - k*direction;
+                            const double hit_distance = (_hit_point - ray_origin).magnitude();
+                            if ( hit_distance <= length && ( hit_count == 0 || hit_distance < min_distance) ) {
+                                min_distance = hit_distance;
+                                hit_point = _hit_point;
+                                hit_normal = (_hit_point - caps_point).normalized();
+                                hit_ent = caps_coll->entity();
+                                ++hit_count;
+                            }
                         }
 
                         break;
