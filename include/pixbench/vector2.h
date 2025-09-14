@@ -40,6 +40,7 @@ public:
 
     void rotate(double theta_rad);
     Vector2 rotated(double theta_rad);
+    const Vector2 rotated(double theta_rad) const;
 
     /*
      * Return dot product of v1 and v2

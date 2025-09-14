@@ -888,7 +888,7 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
             if ( coll_1.entity.id == coll_2->entity.id )
                 continue;
 
-            if ( coll_1.collider->is_static == coll_2->collider->is_static )
+            if ( coll_1.collider->is_static && coll_2->collider->is_static )
                 continue;
 
             if (!axisAlignedBoundingSquareCheck(
@@ -929,6 +929,14 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
                                     &is_body_1_the_ref
                                     );
                             break;
+                        case COLTAG_Capsule:
+                            is_colliding = boxToCapsuleCollision(
+                                    static_cast<BoxCollider*>(coll_1.collider),
+                                    static_cast<CapsuleCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
                     }
                     break;
                 case COLTAG_Circle:
@@ -954,6 +962,14 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
                             is_colliding = circleToPolygonCollision(
                                     static_cast<CircleCollider*>(coll_1.collider),
                                     static_cast<PolygonCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                        case COLTAG_Capsule:
+                            is_colliding = circleToCapsuleCollision(
+                                    static_cast<CircleCollider*>(coll_1.collider),
+                                    static_cast<CapsuleCollider*>(coll_2->collider),
                                     &manifold,
                                     &is_body_1_the_ref
                                     );
@@ -984,6 +1000,53 @@ Result<VoidResult, GameError> PhysicsSystem::FixedUpdate(double delta_time_s, En
                             is_colliding = polygonToPolygonCollision(
                                     static_cast<PolygonCollider*>(coll_1.collider),
                                     static_cast<PolygonCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                        case COLTAG_Capsule:
+                            is_colliding = polygonToCapsuleCollision(
+                                    static_cast<PolygonCollider*>(coll_1.collider),
+                                    static_cast<CapsuleCollider*>(coll_2->collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            break;
+                    }
+                    break;
+                case COLTAG_Capsule:
+                    switch (coll_2->collider_tag) {
+                        case COLTAG_Box:
+                            is_colliding = boxToCapsuleCollision(
+                                    static_cast<BoxCollider*>(coll_2->collider),
+                                    static_cast<CapsuleCollider*>(coll_1.collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            is_body_1_the_ref = !is_body_1_the_ref;
+                            break;
+                        case COLTAG_Circle:
+                            is_colliding = circleToCapsuleCollision(
+                                    static_cast<CircleCollider*>(coll_2->collider),
+                                    static_cast<CapsuleCollider*>(coll_1.collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            is_body_1_the_ref = !is_body_1_the_ref;
+                            break;
+                        case COLTAG_Polygon:
+                            is_colliding = polygonToCapsuleCollision(
+                                    static_cast<PolygonCollider*>(coll_2->collider),
+                                    static_cast<CapsuleCollider*>(coll_1.collider),
+                                    &manifold,
+                                    &is_body_1_the_ref
+                                    );
+                            is_body_1_the_ref = !is_body_1_the_ref;
+                            break;
+                        case COLTAG_Capsule:
+                            is_colliding = capsuleToCapsuleCollision(
+                                    static_cast<CapsuleCollider*>(coll_1.collider),
+                                    static_cast<CapsuleCollider*>(coll_2->collider),
                                     &manifold,
                                     &is_body_1_the_ref
                                     );
@@ -1178,6 +1241,97 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                         }
                     }
                     
+                    break;
+                    }
+                case COLTAG_Capsule:
+                    {
+                    CapsuleCollider* caps_coll = static_cast<CapsuleCollider*>(coll);
+                    const Vector2 caps_pos = caps_coll->__transform.GlobalPosition();
+                    const double caps_rot = caps_coll->__transform.rotation;
+                    const Vector2 caps_p1 = caps_pos + Vector2::UP.rotated(caps_rot) * (caps_coll->length / 2.0);
+                    const Vector2 caps_p2 = caps_pos + Vector2::DOWN.rotated(caps_rot) * (caps_coll->length / 2.0);
+                    if ( isEntityColliding(ent_id) ) {
+                        SDL_SetRenderDrawColorFloat(
+                                renderContext->renderer,
+                                1.0, 0.0, 0.0, 1.0
+                                );
+                    }
+                    else {
+                        SDL_SetRenderDrawColorFloat(
+                                renderContext->renderer,
+                                0.0, 1.0, 0.0, 1.0
+                                );
+                    }
+                    const size_t point_counts = 16;
+                    SDL_FPoint circle_points_1[point_counts+1];
+                    SDL_FPoint circle_points_2[point_counts+1];
+                    for (int i=0; i<point_counts+1; i++) {
+                        const float xp = caps_coll->radius*std::cos(i*2.0*M_PI/point_counts);
+                        const float yp = caps_coll->radius*std::sin(i*2.0*M_PI/point_counts);
+                        const Vector2 circle_point_1 = sceneToScreenSpace(renderContext,
+                                Vector2(xp + caps_p1.x, yp + caps_p1.y)
+                                );
+                        const Vector2 circle_point_2 = sceneToScreenSpace(renderContext,
+                                Vector2(xp + caps_p2.x, yp + caps_p2.y)
+                                );
+                        circle_points_1[i] = { circle_point_1.x, circle_point_1.y };
+                        circle_points_2[i] = { circle_point_2.x, circle_point_2.y };
+                     }
+
+                    const Vector2 _center = sceneToScreenSpace(renderContext, caps_pos);
+                    SDL_RenderPoint(renderContext->renderer, _center.x, _center.y);
+                    SDL_RenderLines(
+                            renderContext->renderer, circle_points_1, point_counts+1
+                            );
+                    SDL_RenderLines(
+                            renderContext->renderer, circle_points_2, point_counts+1
+                            );
+                    const Vector2 right_line_offset = Vector2::RIGHT.rotated(caps_rot) * caps_coll->radius;
+                    SDL_RenderLine(
+                            renderContext->renderer,
+                            caps_p1.x + right_line_offset.x, caps_p1.y + right_line_offset.y,
+                            caps_p2.x + right_line_offset.x, caps_p2.y + right_line_offset.y
+                            );
+                    const Vector2 left_line_offset = Vector2::LEFT.rotated(caps_rot) * caps_coll->radius;
+                    SDL_RenderLine(
+                            renderContext->renderer,
+                            caps_p1.x + left_line_offset.x, caps_p1.y + left_line_offset.y,
+                            caps_p2.x + left_line_offset.x, caps_p2.y + left_line_offset.y
+                            );
+
+                    // manifold
+                    std::vector<CollisionEvent> coll_events = getEntityCollisionManifolds(ent_id);
+                    for (auto& coll_event : coll_events) {
+                        CollisionManifold manifold = coll_event.manifold;
+                        for (int i=0; i<manifold.point_count; ++i) {
+                            Vector2 contact = sceneToScreenSpace(renderContext, manifold.points[i]);
+
+                            SDL_RenderLine(
+                                    renderContext->renderer,
+                                    caps_pos.x, caps_pos.y, contact.x, contact.y
+                                    );
+
+                            SDL_SetRenderDrawColorFloat(
+                                    renderContext->renderer,
+                                    0.0, 0.0, 1.0, 1.0
+                                    );
+                            phydebDrawCross(
+                                    renderContext->renderer,
+                                    &contact
+                                    );
+                            // normals
+                            SDL_SetRenderDrawColorFloat(
+                                    renderContext->renderer,
+                                    0.0, 1.0, 0.5, 1.0);
+                            SDL_RenderLine(
+                                    renderContext->renderer,
+                                    contact.x, contact.y,
+                                    contact.x + manifold.normal.x*manifold.penetration_depth,
+                                    contact.y + manifold.normal.y*manifold.penetration_depth
+                                    );
+                        }
+                    }
+
                     break;
                     }
                 case COLTAG_Polygon:

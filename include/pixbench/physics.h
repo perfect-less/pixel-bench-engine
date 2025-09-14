@@ -253,6 +253,7 @@ public:
 class BoxCollider;
 class CircleCollider;
 class PolygonCollider;
+class CapsuleCollider;
 
 
 bool boxToBoxCollision(BoxCollider* box_1, BoxCollider* box_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
@@ -261,13 +262,22 @@ bool boxToCircleCollision(BoxCollider* box, CircleCollider* circle, CollisionMan
 
 bool boxToPolygonCollision(BoxCollider* box, PolygonCollider* polygon, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
 
+bool boxToCapsuleCollision(BoxCollider* box, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
+
 
 bool circleToCircleCollision(CircleCollider* circle_1, CircleCollider* circle_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
 
 bool circleToPolygonCollision(CircleCollider* circle, PolygonCollider* polygon, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
 
+bool circleToCapsuleCollision(CircleCollider* circle, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
+
 
 bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* polygon_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
+
+bool polygonToCapsuleCollision(PolygonCollider* polygon, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
+
+
+bool capsuleToCapsuleCollision(CapsuleCollider* capsule_1, CapsuleCollider* capsule_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
 
 
 // === Physics utility functions ===

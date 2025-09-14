@@ -69,6 +69,13 @@ Vector2 Vector2::rotated(double theta_rad) {
     return Vector2(x, y);
 }
 
+const Vector2 Vector2::rotated(double theta_rad) const {
+    const float x = this->x*std::cos(theta_rad) - this->y*std::sin(theta_rad);
+    const float y = this->x*std::sin(theta_rad) + this->y*std::cos(theta_rad);
+
+    return Vector2(x, y);
+}
+
 double Vector2::sqrMagnitude() {
     return this->x*this->x + this->y*this->y;
 }
