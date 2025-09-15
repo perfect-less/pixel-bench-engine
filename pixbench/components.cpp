@@ -1,6 +1,7 @@
-#include "pixbench/ecs.h"
 #include "pixbench/physics.h"
 #include "pixbench/vector2.h"
+#include "pixbench/components.h"
+#include "pixbench/systems.h"
 #include <cassert>
 #include <vector>
 

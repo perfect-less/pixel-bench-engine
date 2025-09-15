@@ -2,7 +2,6 @@
 #define GAME_HEADER
 
 
-#include "pixbench/engine_config.h"
 #include "pixbench/gameconfig.h"
 #include "pixbench/physics.h"
 #include "pixbench/renderer.h"

@@ -1,20 +1,11 @@
-#include "pixbench/ecs.h"
 #include "pixbench/engine_config.h"
+#include "pixbench/components.h"
+#include "pixbench/systems.h"
+#include "pixbench/ecs.h"
 #include "pixbench/game.h"
-#include "pixbench/physics.h"
-#include "pixbench/renderer.h"
-#include "pixbench/vector2.h"
-#include "SDL3_mixer/SDL_mixer.h"
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
-#include <algorithm>
-#include <bitset>
-#include <cmath>
 #include <cstddef>
-#include <iostream>
-#include <memory>
-#include <ostream>
-#include <vector>
 
 
 ScriptSystem::ScriptSystem() {

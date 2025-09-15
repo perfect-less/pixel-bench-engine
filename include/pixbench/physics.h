@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <unordered_map>
+#include <vector>
 
 
 class Game;
@@ -42,6 +43,11 @@ public:
      * cast a circle ray, returns the first contact point between the ray and collider in the game.
      */
     bool circleCast(Vector2 origin, Vector2 direction, float length, float radius, RaycastHit* out__raycast_hit);
+
+    /*
+     * Perform collision check agains all collider in the game
+     */
+    // void performCollisionCheck(ColliderSurrogate colliderSurrogate);
 
 
     void __setGame(Game* game) {
@@ -278,6 +284,13 @@ bool polygonToCapsuleCollision(PolygonCollider* polygon, CapsuleCollider* capsul
 
 
 bool capsuleToCapsuleCollision(CapsuleCollider* capsule_1, CapsuleCollider* capsule_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
+
+
+// === Physics Checks ===
+
+class Collider;
+class ColliderObject;
+bool colliderCheckCollision(Collider* coll, std::vector<ColliderObject> all_colliders);
 
 
 // === Physics utility functions ===

@@ -1,15 +1,12 @@
 #include "pixbench/ecs.h"
+#include "pixbench/systems.h"
 #include "pixbench/engine_config.h"
-#include "pixbench/renderer.h"
 #include "pixbench/vector2.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
-#include <iostream>
-#include <limits>
 #include <memory>
-#include <regex>
 #include "pixbench/physics.h"
 
 

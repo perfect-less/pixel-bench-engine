@@ -1,6 +1,6 @@
 #include "pixbench/ecs.h"
+#include "pixbench/entity.h"
 #include <algorithm>
-#include <ostream>
 #include <vector>
 
 
