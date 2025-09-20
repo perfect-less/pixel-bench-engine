@@ -2,7 +2,7 @@
 #define AUDIO_HEADER
 
 #include "SDL3_mixer/SDL_mixer.h"
-#include "pixbench/utils.h"
+#include "pixbench/utils/results.h"
 #include <SDL3/SDL_audio.h>
 #include <memory>
 #include <string>

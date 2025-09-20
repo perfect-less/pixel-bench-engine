@@ -3,10 +3,9 @@
 
 
 #include "pixbench/gameconfig.h"
-#include "pixbench/physics.h"
+#include "pixbench/physics/physics.h"
 #include "pixbench/renderer.h"
 #include "pixbench/audio.h"
-#include "pixbench/utils.h"
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_render.h>
 #include <memory>
@@ -19,59 +18,6 @@ struct EntityID;
 class EntityManager;
 class ISystem;
 class ScriptSystem;
-
-
-/*
- * Default error type to return using Result<T, E> by Game class
- * methods.
- * example usage:
- * ~~~~~~~~~~~~~~~~~~~~~~~~{.cpp}
- * return Result<VoidResult, GameError>::Err(GameError("Error message here."))
- * ~~~~~~~~~~~~~~~~~~~~~~~~
- */
-class GameError {
-public:
-    std::string err_message;
-
-    GameError() = default;
-
-    GameError(
-            std::string err_message
-            )
-        :
-            err_message(err_message)
-    { }
-};
-
-/*
- * Place holder to denote `void` type of return when using `Result<T, E>`
- * example usage:
- * ~~~~~~~~~~~~~~~~~~~~~~~~{.cpp}
- * return Result<VoidResult, GameError>::Ok(VoidResult::empty)
- * ~~~~~~~~~~~~~~~~~~~~~~~~
- */
-class VoidResult {
-public:
-    static VoidResult empty;
-};
-
-
-/*
- * Default Void Result return value used by the game engine.
- */
-#define Void Result<VoidResult, GameError>
-
-/*
- * Default Ok value for typical Result<VoidResult, GameError> result type used
- * by the game engine.
- */
-#define ResultOK Result<VoidResult, GameError>::Ok(VoidResult::empty)
-
-/*
- * Default Error value for typical Result<VoidResult, GameError> result type
- * used by the game engine.
- */
-#define ResultError(err_message) Result<VoidResult, GameError>::Err(GameError(err_message))
 
 
 /**

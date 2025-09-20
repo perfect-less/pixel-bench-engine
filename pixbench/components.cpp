@@ -1,4 +1,4 @@
-#include "pixbench/physics.h"
+#include "pixbench/physics/type.h"
 #include "pixbench/vector2.h"
 #include "pixbench/components.h"
 #include "pixbench/systems.h"
