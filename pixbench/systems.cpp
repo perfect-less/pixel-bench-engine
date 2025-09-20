@@ -7,6 +7,7 @@
 #include "pixbench/physics/type.h"
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
+#include <algorithm>
 #include <cstddef>
 
 
