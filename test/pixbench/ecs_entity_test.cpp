@@ -109,4 +109,3 @@ TEST_CASE("ecs system test", "[ecscore]") {
     }
 
 }
-

@@ -1,7 +1,7 @@
 #ifndef GAME_CONFIG_HEADER
 #define GAME_CONFIG_HEADER
 
-#include "pixbench/utils.h"
+#include "pixbench/utils/utils.h"
 #include <string>
 
 

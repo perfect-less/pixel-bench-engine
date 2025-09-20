@@ -2,7 +2,7 @@
 #define RENDERER_HEADER
 
 #include "pixbench/resource.h"
-#include "pixbench/utils.h"
+#include "pixbench/utils/utils.h"
 #include "pixbench/vector2.h"
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_render.h>

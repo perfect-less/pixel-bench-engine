@@ -1,17 +1,11 @@
-#ifndef PHYSICS_HEADER
-#define PHYSICS_HEADER
+#ifndef PHYSICS_TYPE_HEADER
+#define PHYSICS_TYPE_HEADER
+
 
 #include "pixbench/entity.h"
-#include "pixbench/engine_config.h"
-#include "pixbench/renderer.h"
 #include "pixbench/vector2.h"
 #include <cmath>
-#include <cstddef>
-#include <cstdlib>
 #include <unordered_map>
-
-
-class Game;
 
 
 class RaycastHit {
@@ -24,29 +18,6 @@ public:
 
     RaycastHit(Vector2 point, Vector2 normal, EntityID ent)
         : point(point), normal(normal.normalized()), ent(ent) {}
-};
-
-
-class PhysicsAPI {
-private:
-    Game* m_game{ nullptr };
-public:
-    float GRAVITY = 30.0;
-
-    /*
-     * cast a ray, returns the first contact point between the ray and collider in the game.
-     */
-    bool rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit);
-
-    /*
-     * cast a circle ray, returns the first contact point between the ray and collider in the game.
-     */
-    bool circleCast(Vector2 origin, Vector2 direction, float length, float radius, RaycastHit* out__raycast_hit);
-
-
-    void __setGame(Game* game) {
-        m_game = game;
-    }
 };
 
 
@@ -249,57 +220,5 @@ public:
         return true;
     }
 };
-
-class BoxCollider;
-class CircleCollider;
-class PolygonCollider;
-class CapsuleCollider;
-
-
-bool boxToBoxCollision(BoxCollider* box_1, BoxCollider* box_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
-
-bool boxToCircleCollision(BoxCollider* box, CircleCollider* circle, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
-
-bool boxToPolygonCollision(BoxCollider* box, PolygonCollider* polygon, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
-
-bool boxToCapsuleCollision(BoxCollider* box, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
-
-
-bool circleToCircleCollision(CircleCollider* circle_1, CircleCollider* circle_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
-
-bool circleToPolygonCollision(CircleCollider* circle, PolygonCollider* polygon, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
-
-bool circleToCapsuleCollision(CircleCollider* circle, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
-
-
-bool polygonToPolygonCollision(PolygonCollider* polygon_1, PolygonCollider* polygon_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
-
-bool polygonToCapsuleCollision(PolygonCollider* polygon, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
-
-
-bool capsuleToCapsuleCollision(CapsuleCollider* capsule_1, CapsuleCollider* capsule_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref);
-
-
-// === Physics utility functions ===
-
-bool axisAlignedBoundingSquareCheck(
-        const Vector2* b1_pos, float b1_radius,
-        const Vector2* b2_pos, float b2_radius
-        );
-
-Vector2 projectPointToLine(Vector2 point, Vector2 line_p1, Vector2 line_p2);
-
-
-// === Physics Debug Drawing ===
-
-/*
- * Draw cross using SDL_RenderLine.
- * Use SDL_SetRenderDrawColorFloat before calling this function to set color.
- */
-void phydebDrawCross(
-        SDL_Renderer* renderer,
-        Vector2* center,
-        float cross_width = 12.0
-        );
 
 #endif

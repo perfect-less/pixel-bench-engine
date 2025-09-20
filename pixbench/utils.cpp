@@ -1,4 +1,4 @@
-#include "pixbench/utils.h"
+#include "pixbench/utils/utils.h"
 #include <random>
 #include <sys/types.h>
 

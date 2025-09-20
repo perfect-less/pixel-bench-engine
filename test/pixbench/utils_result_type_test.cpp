@@ -1,4 +1,5 @@
-#include "pixbench/utils.h"
+#include "pixbench/utils/utils.h"
+#include "pixbench/utils/results.h"
 #include <string>
 
 #define CATCH_CONFIG_MAIN

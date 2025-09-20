@@ -1,39 +1,6 @@
-#ifndef UTILS_HEADER
-#define UTILS_HEADER
+#ifndef GAME_RESULTS_HEADER
+#define GAME_RESULTS_HEADER
 
-
-#include <SDL3/SDL_stdinc.h>
-#include <sys/types.h>
-
-void PrepareRandomGenerator();
-
-u_int32_t GenerateRandomUInt32();
-
-class Color {
-private:
-public:
-    Uint8 r, g, b, a;
-    Color (Uint8 r, Uint8 g, Uint8 b, Uint8 a) {
-        this->r = r;
-        this->g = g;
-        this->b = b;
-        this->a = a;
-    }
-
-    Color() : Color(0, 0, 0, 255) {}
-
-    static Color GetWhite() {
-        return Color(255, 255, 255, 255);
-    }
-
-    static Color GetBlack() {
-        return Color();
-    }
-
-    static Color GetGray() {
-        return Color(170, 170, 170, 255);
-    }
-};
 
 // Result Type
 template<typename T, typename E>
@@ -121,5 +88,60 @@ public:
     }
     
 };
+
+
+/*
+ * Default error type to return using Result<T, E> by Game class
+ * methods.
+ * example usage:
+ * ~~~~~~~~~~~~~~~~~~~~~~~~{.cpp}
+ * return Result<VoidResult, GameError>::Err(GameError("Error message here."))
+ * ~~~~~~~~~~~~~~~~~~~~~~~~
+ */
+#include <string>
+class GameError {
+public:
+    std::string err_message;
+
+    GameError() = default;
+
+    GameError(
+            std::string err_message
+            )
+        :
+            err_message(err_message)
+    { }
+};
+
+/*
+ * Place holder to denote `void` type of return when using `Result<T, E>`
+ * example usage:
+ * ~~~~~~~~~~~~~~~~~~~~~~~~{.cpp}
+ * return Result<VoidResult, GameError>::Ok(VoidResult::empty)
+ * ~~~~~~~~~~~~~~~~~~~~~~~~
+ */
+class VoidResult {
+public:
+    static VoidResult empty;
+};
+
+
+/*
+ * Default Void Result return value used by the game engine.
+ */
+#define Void Result<VoidResult, GameError>
+
+/*
+ * Default Ok value for typical Result<VoidResult, GameError> result type used
+ * by the game engine.
+ */
+#define ResultOK Result<VoidResult, GameError>::Ok(VoidResult::empty)
+
+/*
+ * Default Error value for typical Result<VoidResult, GameError> result type
+ * used by the game engine.
+ */
+#define ResultError(err_message) Result<VoidResult, GameError>::Err(GameError(err_message))
+
 
 #endif

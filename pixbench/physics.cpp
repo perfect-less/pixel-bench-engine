@@ -1,16 +1,15 @@
 #include "pixbench/ecs.h"
+#include "pixbench/physics/type.h"
+#include "pixbench/systems.h"
 #include "pixbench/engine_config.h"
-#include "pixbench/renderer.h"
 #include "pixbench/vector2.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
-#include <iostream>
-#include <limits>
 #include <memory>
-#include <regex>
-#include "pixbench/physics.h"
+#include "pixbench/physics/physics.h"
 
 
 enum BODY {
@@ -1043,6 +1042,19 @@ bool boxToPolygonCollision(BoxCollider* box, PolygonCollider* polygon, Collision
 
 
 bool circleToCircleCollision(CircleCollider* circle_1, CircleCollider* circle_2, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
+    const double distance = (circle_1->getPosition() - circle_2->getPosition()).magnitude();
+    *is_body_1_the_ref = true;
+
+    if ( distance <= (circle_1->radius + circle_2->radius) ) {
+        const Vector2 normal = (circle_2->getPosition() - circle_1->getPosition()).normalized();
+        manifold__out->point_count = 1;
+        manifold__out->points[0] = circle_1->getPosition() + circle_1->radius * normal;
+        manifold__out->normal = normal;
+        manifold__out->penetration_depth = (circle_1->radius + circle_2->radius) - distance;
+
+        return true;
+    }
+
     return false;
 }
 
@@ -1435,7 +1447,8 @@ bool isProjectedPointLiesWithinLine(
         *out__projected_point = proj_point;
     }
 
-    return isPointBetweenArbitraryBBoxCorner(proj_point, p1, p2);
+    const double distance = projectPointToLineCoordinate(proj_point, p1, (p2 - p1).normalized());
+    return distance >= 0 && distance <= (p2 - p1).magnitude();
 }
 
 
@@ -1621,23 +1634,19 @@ bool boxToCapsuleCollision(BoxCollider* box, CapsuleCollider* capsule, Collision
 
 
 bool circleToCapsuleCollision(CircleCollider* circle, CapsuleCollider* capsule, CollisionManifold* manifold__out, bool* is_body_1_the_ref) {
-    double distance;
-
+    const double combined_radius = circle->radius + capsule->radius;
     const Vector2 circ_pos = circle->__transform.GlobalPosition();
-
     const double caps_rot = capsule->__transform.rotation;
     const Vector2 caps_pos = capsule->__transform.GlobalPosition();
-    const Vector2 caps_p1 = caps_pos + capsule->radius*Vector2::UP.rotated(caps_rot);
-    const Vector2 caps_p2 = caps_pos + capsule->radius*Vector2::DOWN.rotated(caps_rot);
+    const Vector2 caps_p1 = caps_pos + (capsule->length/2.0)*Vector2::UP.rotated(caps_rot);
+    const Vector2 caps_p2 = caps_pos + (capsule->length/2.0)*Vector2::DOWN.rotated(caps_rot);
 
     Vector2 projected_point;
     const bool is_projected = isProjectedPointLiesWithinLine(circ_pos, caps_p1, caps_p2, &projected_point);
 
+    double distance;
     if (is_projected) {
         distance = (projected_point - circ_pos).magnitude();
-        if ( distance > (circle->radius + capsule->radius) ) {
-            return false;
-        }
     } else {
         const double dist_to_p1 = (caps_p1 - circ_pos).magnitude();
         const double dist_to_p2 = (caps_p2 - circ_pos).magnitude();
@@ -1650,9 +1659,10 @@ bool circleToCapsuleCollision(CircleCollider* circle, CapsuleCollider* capsule, 
             projected_point = caps_p2;
         }
 
-        if ( distance > (circle->radius + capsule->radius) ) {
-            return false;
-        }
+    }
+
+    if ( distance > combined_radius ) {
+        return false;
     }
 
     // calculate manifold
@@ -1661,7 +1671,7 @@ bool circleToCapsuleCollision(CircleCollider* circle, CapsuleCollider* capsule, 
 
     manifold__out->normal = contact_normal;
     manifold__out->setPoints(&contact_point, 1);
-    manifold__out->penetration_depth = (circle->radius + capsule->radius) - distance;
+    manifold__out->penetration_depth = combined_radius - distance;
 
     *is_body_1_the_ref = true;
 
@@ -1794,6 +1804,41 @@ bool capsuleToCapsuleCollision(CapsuleCollider* capsule_1, CapsuleCollider* caps
     *is_body_1_the_ref = true;
 
     return true;
+}
+
+
+std::vector<CollisionEvent> PhysicsAPI::performCollisionCheck(EntityID ent, Collider* collider) {
+    std::vector<CollisionEvent> result_events;
+
+    if ( !m_game )
+        return result_events;
+
+    ColliderObject collider_object;
+    collider_object.entity = ent;
+    collider_object.collider = collider;
+    collider_object.collider_tag = collider->getColliderTag();
+
+    auto collision_handler_func = [&result_events, ent](bool is_colliding, CollisionManifold * manifold, bool * is_body1_ref, ColliderObject * coll_1, ColliderObject * coll_2) {
+        if (!is_colliding)
+            return ;
+
+        const bool is_body_1_the_coll = coll_1->entity.id == ent.id;
+        EntityID other = ( ent.id == coll_1->entity.id ) ? coll_2->entity : coll_1->entity;
+
+        CollisionManifold new_manifold;
+        new_manifold = *manifold;
+        if ( !(*is_body1_ref && is_body_1_the_coll) ) {
+            new_manifold.flipNormal();
+        }
+
+        CollisionEvent new_event = CollisionEvent(other, new_manifold);
+        result_events.push_back(new_event);
+    };
+
+    auto physics_system = std::static_pointer_cast<PhysicsSystem>(m_game->physicsSystem);
+    physics_system->__colliderCheckCollision(&collider_object, collision_handler_func);
+
+    return result_events;
 }
 
 
