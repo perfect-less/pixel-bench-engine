@@ -8,6 +8,7 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 
 
@@ -433,7 +434,7 @@ Result<VoidResult, GameError> RenderingSystem::Draw(RenderContext* renderContext
                     renderContext->renderer,
                     sprite->texture->texture,
                     &(sprite->srect), &(sprite_drect__scr),
-                    0,
+                    180 * sprite->transform->rotation / M_PI,
                     nullptr,
                     sprite->flip_mode
                     );

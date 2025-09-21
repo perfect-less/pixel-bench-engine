@@ -382,6 +382,14 @@ public:
         this->drect.h = this->texture->texture->h;
     }
 
+    /*
+     * Set target render size (in pixels) for this sprite
+     */
+    void setTargetSize(float width, float height) {
+        this->drect.w = width;
+        this->drect.h = height;
+    }
+
     int texture_width() {
         if (this->texture)
             return texture->texture->w;
