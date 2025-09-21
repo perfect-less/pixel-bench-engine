@@ -1,6 +1,7 @@
 #ifndef PHYSICS_HEADER
 #define PHYSICS_HEADER
 
+#include "pixbench/entity.h"
 #include "pixbench/physics/type.h"
 #include "pixbench/components.h"
 #include "pixbench/vector2.h"
@@ -26,12 +27,12 @@ public:
     /**
      * cast a ray, returns the first contact point between the ray and collider in the game.
      */
-    bool rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit);
+    bool rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit=nullptr, const EntityID* ignore_entity=nullptr);
 
     /**
      * cast a circle ray, returns the first contact point between the ray and collider in the game.
      */
-    bool circleCast(Vector2 origin, Vector2 direction, float length, float radius, RaycastHit* out__raycast_hit);
+    bool circleCast(Vector2 origin, Vector2 direction, float length, float radius, RaycastHit* out__raycast_hit=nullptr, const EntityID* ignore_entity=nullptr);
 
     /**
      * Perform collision check agains all collider in the game

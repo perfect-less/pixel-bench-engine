@@ -1,4 +1,5 @@
 #include "pixbench/ecs.h"
+#include "pixbench/entity.h"
 #include "pixbench/physics/type.h"
 #include "pixbench/systems.h"
 #include "pixbench/engine_config.h"
@@ -244,7 +245,7 @@ bool isPointBetweenArbitraryBBoxCorner(
 
 // ========== Physics API ==========
 
-bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit) {
+bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, RaycastHit* out__raycast_hit, const EntityID* ignore_entity) {
 
     // TMP: Do 1 long line checks
     // TODO: Break down into line segments checks.
@@ -291,6 +292,9 @@ bool PhysicsAPI::rayCast(Vector2 origin, Vector2 direction, float length, Raycas
             Collider* collider = m_game->entityManager->getEntityComponentCasted<Collider>(
                     ent_id, cindex);
             if ( !collider )
+                continue;
+
+            if ( ignore_entity && ent_id.id == ignore_entity->id )
                 continue;
 
             // aabb precheck
@@ -595,7 +599,7 @@ bool circleCastCheckAgainsEdge(
 }
 
 
-bool PhysicsAPI::circleCast(Vector2 origin, Vector2 direction, float length, float radius, RaycastHit* out__raycast_hit) {
+bool PhysicsAPI::circleCast(Vector2 origin, Vector2 direction, float length, float radius, RaycastHit* out__raycast_hit, const EntityID* ignore_entity) {
 
     // TMP: Do 1 long line checks
     // TODO: Break down into line segments checks.
@@ -627,6 +631,9 @@ bool PhysicsAPI::circleCast(Vector2 origin, Vector2 direction, float length, flo
             Collider* collider = m_game->entityManager->getEntityComponentCasted<Collider>(
                     ent_id, cindex);
             if ( !collider )
+                continue;
+
+            if ( ignore_entity && ent_id.id == ignore_entity->id )
                 continue;
 
             // aabb precheck
@@ -673,7 +680,7 @@ bool PhysicsAPI::circleCast(Vector2 origin, Vector2 direction, float length, flo
                             }
 
                             const double hit_distance = (out__hit_centroid - ray_origin).magnitude();
-                            if ( hit_count == 0 || hit_distance < min_distance ) {
+                            if ( hit_distance <= length && (hit_count == 0 || hit_distance < min_distance) ) {
                                 min_distance = hit_distance;
                                 hit_point = out__hit_point;
                                 hit_normal = out__hit_normal;
@@ -706,7 +713,7 @@ bool PhysicsAPI::circleCast(Vector2 origin, Vector2 direction, float length, flo
                             }
 
                             const double hit_distance = (out__hit_centroid - ray_origin).magnitude();
-                            if ( hit_count == 0 || hit_distance < min_distance ) {
+                            if ( hit_distance <= length && (hit_count == 0 || hit_distance < min_distance) ) {
                                 min_distance = hit_distance;
                                 hit_point = out__hit_point;
                                 hit_normal = out__hit_normal;
