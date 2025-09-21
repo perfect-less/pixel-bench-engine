@@ -25,7 +25,7 @@ Game* Game::CreateGame() {
     gConfig.game_title      = "Pixel Node - Game";
     gConfig.game_version    = "0.0.1";
     gConfig.game_identifier = "com.example.pixelnode-game";
-    
+
     gConfig.render_vsync_enabled = true;
     gConfig.render_clear_color   = Color(200, 200, 200, 255);
 
@@ -110,7 +110,7 @@ void Game::InitializeGame(Game* game) {
             return ResultOK;
         }
     };
-    
+
     // then you can add that component
     ent_mgr->addComponentToEntity<QuitHandlerScript>(ent);
 
