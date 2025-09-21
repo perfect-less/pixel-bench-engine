@@ -238,6 +238,10 @@ public:
     float radius = 16.0;            //!< capsule cap radius
     float length = 32.0;            //!< capsule length (outside the radius)
 
+    CapsuleCollider() {
+        this->setSize(this->radius, this->length);
+    }
+
     void setSize(float r, float l) {
         this->radius = r;
         this->length = l;
