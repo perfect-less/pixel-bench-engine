@@ -1,3 +1,4 @@
+#include "pixbench/components.h"
 #include "pixbench/ecs.h"
 #include "pixbench/entity.h"
 #include <algorithm>
@@ -60,6 +61,9 @@ EntityID EntityManager::createEntity() {
     this->m_entities[new_id.id].active = true;
     this->m_entities[new_id.id].entityid.version = this->m_entities[new_id.id].current_version;
     this->m_uninitialized_entities.push_back(new_id);
+
+    // add Hierarchy component
+    this->addComponentToEntity<Hierarchy>(new_id);
     return new_id;
 }
 

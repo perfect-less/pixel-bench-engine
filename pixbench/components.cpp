@@ -9,13 +9,34 @@
 void Transform::SetPosition(Vector2 position) {
     Vector2 parent_position = this->globalPosition - this->localPosition;
     this->globalPosition = position;
-    this->localPosition = position - parent_position;
+    this->localPosition = (position - parent_position).rotated(-this->_last_parent_rotation);
 }
 
 void Transform::SetLocalPosition(Vector2 localPosition) {
     Vector2 parent_position = this->globalPosition - this->localPosition;
     this->localPosition = localPosition;
-    this->globalPosition = localPosition + parent_position;
+    this->globalPosition = localPosition.rotated(this->_last_parent_rotation) + parent_position;
+}
+
+void Transform::setRotation(double rotation) {
+    const double parent_rotation = this->rotation - this->localRotation;
+    this->rotation = rotation;
+    this->localRotation = rotation - parent_rotation;
+}
+
+void Transform::setLocalRotation(double rotation) {
+    const double parent_rotation = this->rotation - this->localRotation;
+    this->localRotation = rotation;
+    this->rotation = parent_rotation + this->localRotation;
+}
+
+void Transform::syncGlobalFromLocalBasedOnParent(const Transform& parent_transform) {
+    this->globalPosition = parent_transform.globalPosition
+        + this->localPosition.rotated(
+                parent_transform.rotation
+                );
+    this->rotation = parent_transform.rotation + this->localRotation;
+    this->_last_parent_rotation = rotation;
 }
 
 

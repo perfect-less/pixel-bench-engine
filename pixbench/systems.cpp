@@ -2,14 +2,252 @@
 #include "pixbench/components.h"
 #include "pixbench/systems.h"
 #include "pixbench/ecs.h"
+#include "pixbench/entity.h"
 #include "pixbench/game.h"
 #include "pixbench/physics/physics.h"
 #include "pixbench/physics/type.h"
+#include "pixbench/utils/results.h"
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
+
+
+// ===================== Hierarchy System =====================
+
+#define HIERARCHY_STACK_CHILD_COUNT 4
+
+
+void HierarchySystem::_addChildToEntity(EntityID parent, EntityID child) {
+    Hierarchy* p_hie = m_game->entityManager->getEntityComponent<Hierarchy>(parent);
+    Hierarchy* c_hie = m_game->entityManager->getEntityComponent<Hierarchy>(child);
+
+    if ( !p_hie || !c_hie )
+        return;
+
+    // check if child is already in the entity childs list
+    for (size_t i=0; i<p_hie->numChilds(); ++i) {
+        EntityID child_ent;
+        if (i < HIERARCHY_STACK_CHILD_COUNT) {
+            child_ent = p_hie->_array_childs[i];
+        } else {
+            child_ent = m_child_store[parent.id][i-HIERARCHY_STACK_CHILD_COUNT];
+        }
+
+        if (child_ent.id == child.id) {
+            if (child.version <= child_ent.version) {
+                return;
+            }
+
+            if (i < HIERARCHY_STACK_CHILD_COUNT) {
+                p_hie->_array_childs[i] = child;
+            }
+            else {
+                m_child_store[parent.id][i-HIERARCHY_STACK_CHILD_COUNT] = child;
+            }
+        }
+    }
+
+    if ( p_hie->numChilds() + 1 > HIERARCHY_STACK_CHILD_COUNT ) {
+        if (m_child_store.find(parent.id) == m_child_store.end()) {
+            m_child_store[parent.id] = std::vector<EntityID>();
+        }
+        m_child_store[parent.id].push_back(child);
+    }
+    else {
+        p_hie->_array_childs[p_hie->numChilds()] = child;
+    }
+    c_hie->_parent = parent;
+    c_hie->_has_parent = true;
+    p_hie->__incrNumChild();
+}
+
+void HierarchySystem::_addChildsToEntity(EntityID parent, std::vector<EntityID> childs) {
+    assert(false && "Unimplemented function");
+}
+
+bool HierarchySystem::_getEntityChildAtIndex(EntityID parent, size_t index, EntityID* out__child_id) {
+    Hierarchy* p_hie = m_game->entityManager->getEntityComponent<Hierarchy>(parent);
+
+    if ( !p_hie )
+        return false;
+
+    if (index > p_hie->numChilds() - 1) {
+        return false;
+    }
+
+    if (index < HIERARCHY_STACK_CHILD_COUNT) {
+        *out__child_id = p_hie->_array_childs[index];
+        return true;
+    } else {
+        *out__child_id = m_child_store[parent.id][index-HIERARCHY_STACK_CHILD_COUNT];
+        return true;
+    }
+
+    return true;
+}
+
+void HierarchySystem::_removeChildFromEntity(EntityID parent, EntityID child) {
+    Hierarchy* p_hie = m_game->entityManager->getEntityComponent<Hierarchy>(parent);
+    Hierarchy* c_hie = m_game->entityManager->getEntityComponent<Hierarchy>(child);
+
+    if ( !p_hie || !c_hie )
+        return;
+
+    size_t num_childs = p_hie->numChilds();
+
+    for (size_t i=0; i<p_hie->numChilds(); ++i) {
+        EntityID child_ent;
+        if (i < HIERARCHY_STACK_CHILD_COUNT) {
+            child_ent = p_hie->_array_childs[i];
+        } else {
+            child_ent = m_child_store[parent.id][i - HIERARCHY_STACK_CHILD_COUNT];
+        }
+
+        if (child_ent.id == child.id && child_ent.version == child.version) {
+            // TODO: remove entity
+            EntityID last_child;
+            _getEntityChildAtIndex(parent, num_childs-1, &last_child);
+            if (i < HIERARCHY_STACK_CHILD_COUNT) {
+                p_hie->_array_childs[i] = last_child;
+                if (num_childs > HIERARCHY_STACK_CHILD_COUNT) {
+                    m_child_store[parent.id].erase(m_child_store[parent.id].begin() + (num_childs - 1 - HIERARCHY_STACK_CHILD_COUNT));
+                }
+            }
+            else {
+                m_child_store[parent.id].erase(m_child_store[parent.id].begin() + (i - HIERARCHY_STACK_CHILD_COUNT));
+            }
+
+            --num_childs;
+        }
+    }
+
+    Transform* child_trans = m_game->entityManager->getEntityComponent<Transform>(child);
+    if (child_trans) {
+        child_trans->__deParent();
+    }
+
+    c_hie->_has_parent = false;
+    p_hie->__setNumChild(num_childs);
+}
+
+size_t HierarchySystem::_getEntityChildCount(EntityID parent) {
+    Hierarchy* p_hie = m_game->entityManager->getEntityComponent<Hierarchy>(parent);
+
+    if ( !p_hie )
+        return 0;
+
+    return p_hie->numChilds();
+}
+
+std::vector<EntityID> HierarchySystem::_getEntityChilds(EntityID parent) {
+    Hierarchy* p_hie = m_game->entityManager->getEntityComponent<Hierarchy>(parent);
+    std::vector<EntityID> childs;
+
+    if ( !p_hie )
+        return childs;
+
+    childs.reserve(p_hie->numChilds());
+
+    for (size_t i=0; i<p_hie->numChilds(); ++i) {
+        if (i < HIERARCHY_STACK_CHILD_COUNT) {
+            childs.push_back(p_hie->_array_childs[i]);
+            continue;
+        }
+
+        childs.push_back(m_child_store[parent.id][i-HIERARCHY_STACK_CHILD_COUNT]);
+    }
+
+    return childs;
+}
+
+
+Result<VoidResult, GameError> HierarchySystem::Initialize(Game* game, EntityManager* entity_mgr) {
+
+    for (EntityID ent_id : EntityViewByTypes<Hierarchy>(entity_mgr)) {
+        Hierarchy* hierarchy = entity_mgr->getEntityComponent<Hierarchy>(ent_id);
+        hierarchy->_self = ent_id;
+    }
+
+    return ResultOK;
+}
+
+
+Result<VoidResult, GameError> HierarchySystem::FixedUpdate(double delta_time_s, EntityManager* entity_mgr) {
+
+    this->_syncAllTransform();
+
+    return ResultOK;
+}
+
+
+void HierarchySystem::_entitySyncing(EntityID parent, Hierarchy* parent_hierarchy, Transform* last_parent_transform) {
+    EntityManager* ent_mgr = m_game->entityManager;
+
+    auto childs = this->_getEntityChilds(parent);
+
+    for (EntityID ent : childs) {
+        Hierarchy* child_hie = ent_mgr->getEntityComponent<Hierarchy>(ent);
+        Transform* child_trans = ent_mgr->getEntityComponent<Transform>(ent);
+
+        if ( !child_trans ) {
+            _entitySyncing(ent, child_hie, last_parent_transform);
+        } else {
+            child_trans->syncGlobalFromLocalBasedOnParent(*last_parent_transform);
+            _entitySyncing(ent, child_hie, child_trans);
+        }
+    }
+}
+
+
+void HierarchySystem::_syncEntityTransform(EntityID parent) {
+    assert(m_game && "HierarchySystem::m_game shouldn't be null.");
+
+    EntityManager* ent_mgr = m_game->entityManager;
+    assert(ent_mgr && "Game::entityManager shouldn't be null.");
+
+    Hierarchy* p_hie = ent_mgr->getEntityComponent<Hierarchy>(parent);
+    assert(p_hie && "`parent` doesn't have component `Hierarchy`.");
+
+    Transform* p_trans = ent_mgr->getEntityComponent<Transform>(parent);
+    assert(p_trans && "`parent` doesn't have component `Transform`.");
+
+    // recursively traverse down the hierarchy tree
+    _entitySyncing(parent, p_hie, p_trans);
+}
+
+
+void HierarchySystem::_syncAllTransform() {
+    assert(m_game && "HierarchySystem::m_game shouldn't be null.");
+
+    EntityManager* ent_mgr = m_game->entityManager;
+    assert(ent_mgr && "Game::entityManager shouldn't be null.");
+
+    Transform empty_transform = Transform();
+    empty_transform.SetLocalPosition(Vector2::ZERO);
+    empty_transform.localRotation = 0.0;
+    empty_transform.__deParent();
+    for (EntityID ent_id : EntityViewByTypes<Hierarchy>(ent_mgr)) {
+        Hierarchy* ent_hierarchy = ent_mgr->getEntityComponent<Hierarchy>(ent_id);
+        if ( !ent_hierarchy )
+            continue;
+
+        if ( ent_hierarchy->hasParent() )
+            continue;
+
+        Transform* ent_transform = ent_mgr->getEntityComponent<Transform>(ent_id);
+        if ( !ent_transform ) {
+            this->_entitySyncing(ent_id, ent_hierarchy, &empty_transform);
+        } else {
+            this->_entitySyncing(ent_id, ent_hierarchy, ent_transform);
+        }
+    }
+}
+
+
+// ===================== Hierarchy System =====================
 
 
 ScriptSystem::ScriptSystem() {

@@ -8,9 +8,11 @@
 #include "pixbench/utils/results.h"
 #include "pixbench/renderer.h"
 #include "pixbench/vector2.h"
+#include <cstddef>
 #include <functional>
-#include <random>
 #include <string>
+#include <unordered_set>
+#include <vector>
 
 
 // ========== FORWARD DECLARATION ========== BEGIN
@@ -55,28 +57,66 @@ public:
     void SetName(std::string name) {this->name = name;};
 };
 
+class Hierarchy : public IComponent {
+private:
+    size_t _num_child = 0;
+public:
+    EntityID _self;
+    EntityID _parent;
+    EntityID _array_childs[4];
+    EntityID* other_childs = nullptr;
+    bool _has_parent = false;
+
+    Hierarchy() = default;
+
+    size_t numChilds() { return _num_child; };
+
+    inline EntityID self() { return _self; };
+    inline EntityID parent() { return _parent; };
+    inline bool hasParent() { return _has_parent; };
+
+    void __incrNumChild() { ++_num_child; };
+    void __decrNumChild() { --_num_child; };
+    void __setNumChild(size_t num_child) { _num_child = num_child; };
+};
+
 class Transform : public IComponent {
 private:
     Vector2 localPosition = Vector2();
     Vector2 globalPosition = Vector2();
+    double _last_parent_rotation = 0.0;
 
 public:
-    double rotation;
+    double rotation = 0.0;
+    double localRotation = 0.0;
 
     Transform() = default;
     Transform(const Transform& source) {
-        this->SetPosition(source.globalPosition);
+        this->globalPosition = source.globalPosition;
+        this->localPosition = source.localPosition;
         this->rotation = source.rotation;
+        this->localRotation = source.localRotation;
     }
 
     void SetPosition(Vector2 position);
     void SetLocalPosition(Vector2 position);
 
-    Vector2 LocalPosition() {return this->localPosition;};
-    Vector2 GlobalPosition() {return this->globalPosition;};
+    void setRotation(double rotation);
+    void setLocalRotation(double rotation);
+
+    void syncGlobalFromLocalBasedOnParent(const Transform& parent_transform);
+
+    inline Vector2 LocalPosition() {return this->localPosition;};
+    inline Vector2 GlobalPosition() {return this->globalPosition;};
 
     const Vector2* __globalPosPtr() { return &globalPosition; }
     const Vector2* __localPosPtr() { return &localPosition; }
+
+    inline void __deParent() {
+        this->_last_parent_rotation = 0.0;
+        this->localRotation = this->rotation;
+        this->localPosition = this->globalPosition;
+    };
 };
 
 
