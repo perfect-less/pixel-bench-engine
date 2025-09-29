@@ -116,6 +116,7 @@ Result<VoidResult, GameError> Game::Initialize() {
     // Hierarchy
     std::static_pointer_cast<HierarchySystem>(this->hierarchySystem)->__setGame(this);
     this->entityHierarchy.game = this;
+    this->entityManager->setHierarchyAPI(&this->entityHierarchy);
 
     // Physics
     this->physics.__setGame(this);

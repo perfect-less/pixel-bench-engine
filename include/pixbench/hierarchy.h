@@ -31,12 +31,18 @@ public:
     /**
      * Get a vector list of entities childs.
      */
-    std::vector<EntityID> getEntityChilds(EntityID parent);
+    std::vector<EntityID> getEntityChilds(EntityID parent, bool recursive=false);
 
     /**
      * Get the number of child an entity has.
      */
     size_t getEntityChildCount(EntityID parent);
+
+
+    /**
+     * Sync entity's childs transforms.
+     */
+    void syncEntityTransform(EntityID parent);
 
 };
 

@@ -47,7 +47,7 @@ public:
 
     bool _getEntityChildAtIndex(EntityID parent, size_t index, EntityID* out__child_id);
 
-    std::vector<EntityID> _getEntityChilds(EntityID parent);
+    void _getEntityChilds(EntityID parent, std::vector<EntityID>& out__childs, bool recursive=false);
 
     size_t _getEntityChildCount(EntityID parent);
 

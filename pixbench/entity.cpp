@@ -3,6 +3,7 @@
 #include "pixbench/entity.h"
 #include <algorithm>
 #include <vector>
+#include <cassert>
 
 
 EntityManager::EntityManager() {
@@ -65,6 +66,20 @@ EntityID EntityManager::createEntity() {
     // add Hierarchy component
     this->addComponentToEntity<Hierarchy>(new_id);
     return new_id;
+}
+
+
+void EntityManager::destroyEntity(EntityID entity) {
+    assert(m_hierarchy && "EntityManager::HierarchyAPI shouldn't be null.");
+
+    // get all entities
+    auto all_entities = m_hierarchy->getEntityChilds(entity, true);
+
+    // destroy entity from the deepest to root
+    for (auto it = all_entities.rbegin(); it != all_entities.rend(); ++it) {
+        this->_destroyEntity(*it);
+    }
+    this->_destroyEntity(entity);
 }
 
 

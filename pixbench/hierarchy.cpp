@@ -38,12 +38,33 @@ size_t HierarchyAPI::getEntityChildCount(EntityID parent) {
     return p_hie->numChilds();
 }
 
-std::vector<EntityID> HierarchyAPI::getEntityChilds(EntityID parent) {
+std::vector<EntityID> HierarchyAPI::getEntityChilds(EntityID parent, bool recursive) {
     assert(game && "game shouldn't be null");
     auto hie_sys = std::static_pointer_cast<HierarchySystem>(game->hierarchySystem);
     assert(hie_sys && "game::hierarchySystem shouldn't be null");
 
-    std::vector<EntityID> childs = hie_sys->_getEntityChilds(parent);
+    std::vector<EntityID> childs;
+    hie_sys->_getEntityChilds(parent, childs, recursive);
     
     return childs;
+}
+
+
+void HierarchyAPI::syncEntityTransform(EntityID parent) {
+    assert(game && "game shouldn't be null");
+    auto hie_sys = std::static_pointer_cast<HierarchySystem>(game->hierarchySystem);
+    assert(hie_sys && "game::hierarchySystem shouldn't be null");
+
+    Hierarchy* p_hie = game->entityManager->getEntityComponent<Hierarchy>(parent);
+    Transform* p_trans = game->entityManager->getEntityComponent<Transform>(parent);
+    if ( !p_trans ) {
+        Transform empty_transform = Transform();
+        empty_transform.SetLocalPosition(Vector2::ZERO);
+        empty_transform.localRotation = 0.0;
+        empty_transform.__deParent();
+
+        hie_sys->_entitySyncing(parent, p_hie, &empty_transform);
+    } else {
+        hie_sys->_entitySyncing(parent, p_hie, p_trans);
+    }
 }

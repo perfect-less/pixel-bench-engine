@@ -13,6 +13,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <ios>
 
 
 // ===================== Hierarchy System =====================
@@ -142,25 +143,25 @@ size_t HierarchySystem::_getEntityChildCount(EntityID parent) {
     return p_hie->numChilds();
 }
 
-std::vector<EntityID> HierarchySystem::_getEntityChilds(EntityID parent) {
+void HierarchySystem::_getEntityChilds(EntityID parent, std::vector<EntityID>& out__childs, bool recursive) {
     Hierarchy* p_hie = m_game->entityManager->getEntityComponent<Hierarchy>(parent);
-    std::vector<EntityID> childs;
 
     if ( !p_hie )
-        return childs;
-
-    childs.reserve(p_hie->numChilds());
+        return;
 
     for (size_t i=0; i<p_hie->numChilds(); ++i) {
+        EntityID current_child;
         if (i < HIERARCHY_STACK_CHILD_COUNT) {
-            childs.push_back(p_hie->_array_childs[i]);
-            continue;
+            current_child = p_hie->_array_childs[i];
+        } else {
+            current_child = m_child_store[parent.id][i-HIERARCHY_STACK_CHILD_COUNT];
         }
 
-        childs.push_back(m_child_store[parent.id][i-HIERARCHY_STACK_CHILD_COUNT]);
+        out__childs.push_back(current_child);
+        if (recursive) {
+            _getEntityChilds(current_child, out__childs, true);
+        }
     }
-
-    return childs;
 }
 
 
@@ -186,7 +187,8 @@ Result<VoidResult, GameError> HierarchySystem::FixedUpdate(double delta_time_s, 
 void HierarchySystem::_entitySyncing(EntityID parent, Hierarchy* parent_hierarchy, Transform* last_parent_transform) {
     EntityManager* ent_mgr = m_game->entityManager;
 
-    auto childs = this->_getEntityChilds(parent);
+    std::vector<EntityID> childs;
+    this->_getEntityChilds(parent, childs);
 
     for (EntityID ent : childs) {
         Hierarchy* child_hie = ent_mgr->getEntityComponent<Hierarchy>(ent);
@@ -234,13 +236,15 @@ void HierarchySystem::_syncAllTransform() {
         if ( !ent_hierarchy )
             continue;
 
-        if ( ent_hierarchy->hasParent() )
+        if ( ent_hierarchy->hasParent() ) {
             continue;
+        }
 
         Transform* ent_transform = ent_mgr->getEntityComponent<Transform>(ent_id);
         if ( !ent_transform ) {
             this->_entitySyncing(ent_id, ent_hierarchy, &empty_transform);
         } else {
+            ent_transform->syncGlobalFromLocalBasedOnParent(empty_transform);
             this->_entitySyncing(ent_id, ent_hierarchy, ent_transform);
         }
     }
