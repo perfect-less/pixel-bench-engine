@@ -5,9 +5,12 @@
 #include "pixbench/components.h"
 #include "pixbench/ecs.h"
 #include "pixbench/engine_config.h"
+#include "pixbench/entity.h"
 #include "pixbench/game.h"
 #include "pixbench/physics/physics.h"
 #include "pixbench/physics/type.h"
+#include "pixbench/utils/results.h"
+#include <cstddef>
 #include <functional>
 class ISystem {
 public:
@@ -24,6 +27,42 @@ public:
     virtual Result<VoidResult, GameError> OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id) { return ResultOK; };
     virtual Result<VoidResult, GameError> OnError(EntityManager* entity_mgr) { return ResultOK; };
     virtual Result<VoidResult, GameError> OnExit(EntityManager* entity_mgr) { return ResultOK; };
+};
+
+
+class HierarchySystem : public ISystem {
+private:
+    std::unordered_map<EntityIDNumber, std::vector<EntityID>> m_child_store;
+    Game* m_game = nullptr;
+public:
+    HierarchySystem() = default;
+
+    void __setGame(Game* game) { m_game = game; };
+
+    void _addChildToEntity(EntityID parent, EntityID child);
+
+    void _addChildsToEntity(EntityID parent, std::vector<EntityID> childs);
+
+    void _removeChildFromEntity(EntityID parent, EntityID child);
+
+    bool _getEntityChildAtIndex(EntityID parent, size_t index, EntityID* out__child_id);
+
+    void _getEntityChilds(EntityID parent, std::vector<EntityID>& out__childs, bool recursive=false);
+
+    size_t _getEntityChildCount(EntityID parent);
+
+    void _entitySyncing(EntityID parent, Hierarchy* parent_hierarchy, Transform* last_parent_transform);
+    void _syncEntityTransform(EntityID parent);
+
+    void _syncAllTransform();
+
+    Result<VoidResult, GameError> Initialize(Game* game, EntityManager* entity_mgr);
+    // Result<VoidResult, GameError> OnComponentRegistered(const ComponentDataPayload* component_info);
+    // Result<VoidResult, GameError> OnEvent(SDL_Event *event, EntityManager* entity_mgr);
+    // Result<VoidResult, GameError> Update(double delta_time_s, EntityManager* entity_mgr);
+    // Result<VoidResult, GameError> LateUpdate(double delta_time_s, EntityManager* entity_mgr);
+    Result<VoidResult, GameError> FixedUpdate(double delta_time_s, EntityManager* entity_mgr);
+    // Result<VoidResult, GameError> OnEntityDestroyed(EntityManager* entity_mgr, EntityID entity_id);
 };
 
 

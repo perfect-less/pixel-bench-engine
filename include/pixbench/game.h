@@ -3,6 +3,7 @@
 
 
 #include "pixbench/gameconfig.h"
+#include "pixbench/hierarchy.h"
 #include "pixbench/physics/physics.h"
 #include "pixbench/renderer.h"
 #include "pixbench/audio.h"
@@ -38,7 +39,9 @@ public:
     EntityManager* entityManager = nullptr;     //!< global entityManager, created when Game::Initialize() were called
 
     PhysicsAPI physics;
+    HierarchyAPI entityHierarchy;
 
+    std::shared_ptr<ISystem> hierarchySystem = nullptr; //!< hierarchy system
     std::shared_ptr<ISystem> physicsSystem = nullptr;
     std::shared_ptr<ISystem> scriptSystem = nullptr;    //!< script system
     std::vector<std::shared_ptr<ISystem>> ecs_systems;  //!< array of systems in ECS

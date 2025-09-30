@@ -101,14 +101,22 @@ Result<VoidResult, GameError> Game::Initialize() {
             }
             );
 
+    this->hierarchySystem = std::make_shared<HierarchySystem>();
     this->scriptSystem = std::make_shared<ScriptSystem>();
     this->physicsSystem = std::make_shared<PhysicsSystem>();
     this->ecs_systems.push_back(std::make_shared<RenderingSystem>());
     this->ecs_systems.push_back(std::make_shared<AudioSystem>());
+    this->ecs_systems.push_back(hierarchySystem);
     this->ecs_systems.push_back(scriptSystem);
     this->ecs_systems.push_back(physicsSystem);
 
+
     this->isRunning = true;
+
+    // Hierarchy
+    std::static_pointer_cast<HierarchySystem>(this->hierarchySystem)->__setGame(this);
+    this->entityHierarchy.game = this;
+    this->entityManager->setHierarchyAPI(&this->entityHierarchy);
 
     // Physics
     this->physics.__setGame(this);

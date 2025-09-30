@@ -5,6 +5,7 @@
 #include "pixbench/entity.h"
 #include "pixbench/game.h"
 #include "pixbench/engine_config.h"
+#include "pixbench/hierarchy.h"
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -293,6 +294,7 @@ private:
     EntityIDNumber m_last_available_entity_number;          //!< counter 
     std::vector<EntityID> m_uninitialized_entities;         //!< for keeping track of uninitialized entity
     ComponentManager* m_component_manager = nullptr;        //!< ComponentManager
+    HierarchyAPI* m_hierarchy = nullptr;
 
     /**
      * callback to `Game` when destroyEntity() was called
@@ -303,6 +305,14 @@ public:
     
     EntityManager();
     ~EntityManager();
+
+    /**
+     *
+     *
+     */
+    void setHierarchyAPI(HierarchyAPI* hierarchy_api) {
+        this->m_hierarchy = hierarchy_api;
+    }
 
     /**
      * Create a new entity and returns the ID of the newly created entity.
@@ -481,11 +491,14 @@ public:
     };
 
     /**
-     * This will remove all components related to an entity and then set the
-     * EntityIDD as inactive. The EntityID might be reused for new entity.
+     * This will remove all components related to an entity (and all of its childrens) 
+     * and then set the EntityID as inactive. The EntityID might be reused for new entity.
      */
-    void destroyEntity(EntityID entity) {
-        // notify systems
+    void destroyEntity(EntityID entity);
+
+    void _destroyEntity(EntityID entity) {
+        // actual implementation code for removing entity from entity list
+        // and `ComponentManager`
         if (this->m_on_entity_destroyed_callback)
             m_on_entity_destroyed_callback(entity);
 
@@ -498,7 +511,7 @@ public:
         this->m_unused_entity_queue.push(entity.id);
         // reset component mask
         this->m_entities[entity.id].component_mask.reset();
-    };
+    }
 
     /*
      * Destroy all entities available in EntityManager.
