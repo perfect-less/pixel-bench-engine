@@ -104,6 +104,8 @@ public:
     void setRotation(double rotation);
     void setLocalRotation(double rotation);
 
+    void rotate(double delta);
+
     void syncGlobalFromLocalBasedOnParent(const Transform& parent_transform);
 
     inline Vector2 LocalPosition() {return this->localPosition;};

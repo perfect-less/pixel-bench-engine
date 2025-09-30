@@ -30,13 +30,18 @@ void Transform::setLocalRotation(double rotation) {
     this->rotation = parent_rotation + this->localRotation;
 }
 
+void Transform::rotate(double delta) {
+    this->localRotation += delta;
+    this->rotation += delta;
+}
+
 void Transform::syncGlobalFromLocalBasedOnParent(const Transform& parent_transform) {
     this->globalPosition = parent_transform.globalPosition
         + this->localPosition.rotated(
                 parent_transform.rotation
                 );
     this->rotation = parent_transform.rotation + this->localRotation;
-    this->_last_parent_rotation = rotation;
+    this->_last_parent_rotation = parent_transform.rotation;
 }
 
 
