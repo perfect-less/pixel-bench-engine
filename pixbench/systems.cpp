@@ -6,7 +6,9 @@
 #include "pixbench/game.h"
 #include "pixbench/physics/physics.h"
 #include "pixbench/physics/type.h"
+#include "pixbench/renderer.h"
 #include "pixbench/utils/results.h"
+#include "pixbench/vector2.h"
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
 #include <algorithm>
@@ -1494,11 +1496,6 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                         for (int i=0; i<manifold.point_count; ++i) {
                             Vector2 contact = sceneToScreenSpace(renderContext, manifold.points[i]);
 
-                            SDL_RenderLine(
-                                    renderContext->renderer,
-                                    circ_pos.x, circ_pos.y, contact.x, contact.y
-                                    );
-
                             SDL_SetRenderDrawColorFloat(
                                     renderContext->renderer,
                                     0.0, 0.0, 1.0, 1.0
@@ -1566,16 +1563,20 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                             renderContext->renderer, circle_points_2, point_counts+1
                             );
                     const Vector2 right_line_offset = Vector2::RIGHT.rotated(caps_rot) * caps_coll->radius;
-                    SDL_RenderLine(
-                            renderContext->renderer,
-                            caps_p1.x + right_line_offset.x, caps_p1.y + right_line_offset.y,
-                            caps_p2.x + right_line_offset.x, caps_p2.y + right_line_offset.y
-                            );
                     const Vector2 left_line_offset = Vector2::LEFT.rotated(caps_rot) * caps_coll->radius;
+                    const Vector2 right_line_p1 = sceneToScreenSpace(renderContext, caps_p1 + right_line_offset);
+                    const Vector2 right_line_p2 = sceneToScreenSpace(renderContext, caps_p2 + right_line_offset);
+                    const Vector2 left_line_p1 = sceneToScreenSpace(renderContext, caps_p1 + left_line_offset);
+                    const Vector2 left_line_p2 = sceneToScreenSpace(renderContext, caps_p2 + left_line_offset);
                     SDL_RenderLine(
                             renderContext->renderer,
-                            caps_p1.x + left_line_offset.x, caps_p1.y + left_line_offset.y,
-                            caps_p2.x + left_line_offset.x, caps_p2.y + left_line_offset.y
+                            right_line_p1.x, right_line_p1.y,
+                            right_line_p2.x, right_line_p2.y
+                            );
+                    SDL_RenderLine(
+                            renderContext->renderer,
+                            left_line_p1.x, left_line_p1.y,
+                            left_line_p2.x, left_line_p2.y
                             );
 
                     // manifold
@@ -1584,11 +1585,6 @@ Result<VoidResult, GameError> PhysicsSystem::Draw(RenderContext* renderContext, 
                         CollisionManifold manifold = coll_event.manifold;
                         for (int i=0; i<manifold.point_count; ++i) {
                             Vector2 contact = sceneToScreenSpace(renderContext, manifold.points[i]);
-
-                            SDL_RenderLine(
-                                    renderContext->renderer,
-                                    caps_pos.x, caps_pos.y, contact.x, contact.y
-                                    );
 
                             SDL_SetRenderDrawColorFloat(
                                     renderContext->renderer,
