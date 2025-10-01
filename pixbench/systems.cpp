@@ -20,11 +20,21 @@
 #define HIERARCHY_STACK_CHILD_COUNT 4
 
 
+HierarchySystem::HierarchySystem() {
+    this->m_empty_transform.SetLocalPosition(Vector2::ZERO);
+    this->m_empty_transform.localRotation = 0.0;
+    this->m_empty_transform.__deParent();
+}
+
+
 void HierarchySystem::_addChildToEntity(EntityID parent, EntityID child) {
     Hierarchy* p_hie = m_game->entityManager->getEntityComponent<Hierarchy>(parent);
     Hierarchy* c_hie = m_game->entityManager->getEntityComponent<Hierarchy>(child);
 
     if ( !p_hie || !c_hie )
+        return;
+
+    if ( c_hie->hasParent() )
         return;
 
     // check if child is already in the entity childs list
@@ -62,6 +72,13 @@ void HierarchySystem::_addChildToEntity(EntityID parent, EntityID child) {
     c_hie->_parent = parent;
     c_hie->_has_parent = true;
     p_hie->__incrNumChild();
+
+    // handle child transform
+    Transform* child_trans = m_game->entityManager->getEntityComponent<Transform>(child);
+    Transform* parent_trans = m_game->entityManager->getEntityComponent<Transform>(parent);
+    if ( parent_trans && child_trans ) {
+        child_trans->__syncLocalPositionOnParent(parent_trans);
+    }
 }
 
 void HierarchySystem::_addChildsToEntity(EntityID parent, std::vector<EntityID> childs) {
@@ -186,19 +203,23 @@ Result<VoidResult, GameError> HierarchySystem::FixedUpdate(double delta_time_s, 
 void HierarchySystem::_entitySyncing(EntityID parent, Hierarchy* parent_hierarchy, Transform* last_parent_transform) {
     EntityManager* ent_mgr = m_game->entityManager;
 
+    Transform* ent_trans = m_game->entityManager->getEntityComponent<Transform>(parent);
+
+    if ( !last_parent_transform ) {
+        last_parent_transform = &(this->m_empty_transform);
+    }
+
+    if ( ent_trans ) {
+        ent_trans->syncGlobalFromLocalBasedOnParent(*last_parent_transform);
+        last_parent_transform = ent_trans;
+    }
+
     std::vector<EntityID> childs;
     this->_getEntityChilds(parent, childs);
 
     for (EntityID ent : childs) {
         Hierarchy* child_hie = ent_mgr->getEntityComponent<Hierarchy>(ent);
-        Transform* child_trans = ent_mgr->getEntityComponent<Transform>(ent);
-
-        if ( !child_trans ) {
-            _entitySyncing(ent, child_hie, last_parent_transform);
-        } else {
-            child_trans->syncGlobalFromLocalBasedOnParent(*last_parent_transform);
-            _entitySyncing(ent, child_hie, child_trans);
-        }
+        _entitySyncing(ent, child_hie, last_parent_transform);
     }
 }
 
@@ -212,8 +233,12 @@ void HierarchySystem::_syncEntityTransform(EntityID parent) {
     Hierarchy* p_hie = ent_mgr->getEntityComponent<Hierarchy>(parent);
     assert(p_hie && "`parent` doesn't have component `Hierarchy`.");
 
-    Transform* p_trans = ent_mgr->getEntityComponent<Transform>(parent);
-    assert(p_trans && "`parent` doesn't have component `Transform`.");
+    Transform* p_trans = nullptr;
+    if (p_hie->hasParent()) {
+        Transform* pp_trans = m_game->entityManager->getEntityComponent<Transform>(p_hie->parent());
+        if (pp_trans)
+            p_trans = pp_trans;
+    }
 
     // recursively traverse down the hierarchy tree
     _entitySyncing(parent, p_hie, p_trans);
@@ -226,10 +251,6 @@ void HierarchySystem::_syncAllTransform() {
     EntityManager* ent_mgr = m_game->entityManager;
     assert(ent_mgr && "Game::entityManager shouldn't be null.");
 
-    Transform empty_transform = Transform();
-    empty_transform.SetLocalPosition(Vector2::ZERO);
-    empty_transform.localRotation = 0.0;
-    empty_transform.__deParent();
     for (EntityID ent_id : EntityViewByTypes<Hierarchy>(ent_mgr)) {
         Hierarchy* ent_hierarchy = ent_mgr->getEntityComponent<Hierarchy>(ent_id);
         if ( !ent_hierarchy )
@@ -239,13 +260,7 @@ void HierarchySystem::_syncAllTransform() {
             continue;
         }
 
-        Transform* ent_transform = ent_mgr->getEntityComponent<Transform>(ent_id);
-        if ( !ent_transform ) {
-            this->_entitySyncing(ent_id, ent_hierarchy, &empty_transform);
-        } else {
-            ent_transform->syncGlobalFromLocalBasedOnParent(empty_transform);
-            this->_entitySyncing(ent_id, ent_hierarchy, ent_transform);
-        }
+        this->_entitySyncing(ent_id, ent_hierarchy, nullptr);
     }
 }
 

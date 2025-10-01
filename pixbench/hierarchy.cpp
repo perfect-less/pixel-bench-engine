@@ -55,16 +55,5 @@ void HierarchyAPI::syncEntityTransform(EntityID parent) {
     auto hie_sys = std::static_pointer_cast<HierarchySystem>(game->hierarchySystem);
     assert(hie_sys && "game::hierarchySystem shouldn't be null");
 
-    Hierarchy* p_hie = game->entityManager->getEntityComponent<Hierarchy>(parent);
-    Transform* p_trans = game->entityManager->getEntityComponent<Transform>(parent);
-    if ( !p_trans ) {
-        Transform empty_transform = Transform();
-        empty_transform.SetLocalPosition(Vector2::ZERO);
-        empty_transform.localRotation = 0.0;
-        empty_transform.__deParent();
-
-        hie_sys->_entitySyncing(parent, p_hie, &empty_transform);
-    } else {
-        hie_sys->_entitySyncing(parent, p_hie, p_trans);
-    }
+    hie_sys->_syncEntityTransform(parent);
 }
