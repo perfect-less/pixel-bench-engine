@@ -34,8 +34,9 @@ class HierarchySystem : public ISystem {
 private:
     std::unordered_map<EntityIDNumber, std::vector<EntityID>> m_child_store;
     Game* m_game = nullptr;
+    Transform m_empty_transform;
 public:
-    HierarchySystem() = default;
+    HierarchySystem();
 
     void __setGame(Game* game) { m_game = game; };
 

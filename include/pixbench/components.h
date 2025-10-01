@@ -82,8 +82,8 @@ public:
 
 class Transform : public IComponent {
 private:
-    Vector2 localPosition = Vector2();
-    Vector2 globalPosition = Vector2();
+    Vector2 localPosition = Vector2::ZERO;
+    Vector2 globalPosition = Vector2::ZERO;
     double _last_parent_rotation = 0.0;
 
 public:
@@ -113,6 +113,11 @@ public:
 
     const Vector2* __globalPosPtr() { return &globalPosition; }
     const Vector2* __localPosPtr() { return &localPosition; }
+
+    inline void __syncLocalPositionOnParent(Transform* parent) {
+        this->localPosition = this->globalPosition - *parent->__globalPosPtr();
+        this->localRotation = this->rotation - parent->rotation;
+    }
 
     inline void __deParent() {
         this->_last_parent_rotation = 0.0;
