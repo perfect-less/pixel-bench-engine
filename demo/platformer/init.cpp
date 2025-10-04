@@ -1,4 +1,6 @@
+#include "demo/platformer/include/game_manager.h"
 #include "pixbench/ecs.h"
+#include "pixbench/entity.h"
 #include "pixbench/game.h"
 #include "pixbench/utils/utils.h"
 #include "include/chars.h"
@@ -51,71 +53,9 @@ void Game::InitializeGame(Game* game) {
     std::cout << "InitializeGame called" << std::endl;
     auto ent_mgr = game->entityManager;
 
-    // create entity
+    // create game manager entity
     EntityID ent = ent_mgr->createEntity();
-
-    // adding component to entity
-    Transform* transform = ent_mgr->addComponentToEntity<Transform>(ent);
-
-    // creating your custom script as a component
-    class QuitHandlerScript : public ScriptComponent {
-    public:
-        Game* m_game = nullptr; // object reference to pointer
-
-        // Init function called when entity begin its life
-        Void Init(Game *game, EntityManager *entityManager, EntityID self) override {
-            m_game = game;
-
-            return ResultOK;
-        }
-
-        // You can add your own function
-        Void quitTheGame() {
-            std::cout << "QuitHandlerScript::quitTheGame called, will quit the game" << std::endl;
-            if (m_game)
-                m_game->Quit();
-
-            return ResultOK;
-        }
-
-        Void OnDestroy(EntityManager *entityManager, EntityID self) override {
-            std::cout << "QuitHandlerScript::OnDestroy";
-            std::cout << " entity->" << self.id << " called to be destroyed";
-            std::cout << std::endl;
-
-            return ResultOK;
-        }
-
-        // OnEvent called everytime SDL report an event
-        Void OnEvent(SDL_Event *event, EntityManager *entityManager, EntityID self) override {
-            // Handle quit
-            if (event->type == SDL_EVENT_QUIT) {
-                quitTheGame();
-            }
-
-            if (event->type == SDL_EVENT_KEY_DOWN && event->key.key == SDLK_Q) {
-                quitTheGame();
-            }
-
-            // Return a `ResultError` to forcefully terminate the game.
-            // this is just an example on how to do it. Normal termination should
-            // be using `game->Quit()`
-            if (event->type == SDL_EVENT_KEY_DOWN && event->key.key == SDLK_E) {
-                return ResultError(
-                        "This is just as simulated error. "
-                        "Messages here will be shown on the error pop up."
-                        );
-            }
-
-            return ResultOK;
-        }
-    };
-
-    // then you can add that component
-    ent_mgr->addComponentToEntity<QuitHandlerScript>(ent);
-
-    // destroying entity
-    // ent_mgr->destroyEntity(ent);
+    GameManager* game_mgr = ent_mgr->addComponentToEntity<GameManager>(ent);
 
     spawnPlayableCharacter(ent_mgr);
 

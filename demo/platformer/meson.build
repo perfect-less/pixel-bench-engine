@@ -2,7 +2,8 @@
 this_dir = 'demo/platformer'
 source_files = [
   'init.cpp',
-  'chars/player.cpp'
+  'chars/player.cpp',
+  'util/game_manager.cpp',
   ]
 
 this_include = include_directories('include')
