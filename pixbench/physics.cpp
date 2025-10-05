@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <memory>
+#include <system_error>
 #include "pixbench/physics/physics.h"
 
 
@@ -1846,6 +1847,13 @@ std::vector<CollisionEvent> PhysicsAPI::performCollisionCheck(EntityID ent, Coll
     physics_system->__colliderCheckCollision(&collider_object, collision_handler_func);
 
     return result_events;
+}
+
+
+size_t PhysicsAPI::numberOfEntityWithCollider() {
+    std::shared_ptr<PhysicsSystem> physicsSystem = std::static_pointer_cast<PhysicsSystem>(m_game->physicsSystem);
+
+    return physicsSystem->__numEntitiesWithCollider();
 }
 
 

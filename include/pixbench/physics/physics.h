@@ -39,6 +39,11 @@ public:
      */
     std::vector<CollisionEvent> performCollisionCheck(EntityID ent, Collider* collider);
 
+    /**
+     * Get number of entity that have Collider component
+     */
+    size_t numberOfEntityWithCollider();
+
 
     void __setGame(Game* game) {
         m_game = game;

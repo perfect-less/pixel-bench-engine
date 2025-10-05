@@ -1069,9 +1069,6 @@ Result<VoidResult, GameError> PhysicsSystem::OnEntityDestroyed(EntityManager* en
         if ( entity_id.id == entity_2.id )
             continue;
 
-        if ( !isPairColliding(entity_id, entity_2) )
-            continue;
-
         removeCollisionPair(entity_id, entity_2);
     }
 
@@ -1147,17 +1144,28 @@ void PhysicsSystem::__colliderCheckCollision(
         if ( coll_1->collider->is_static && coll_2->collider->is_static )
             continue;
 
-        if (!axisAlignedBoundingSquareCheck(
-                    coll_1->collider->__transform.__globalPosPtr(), coll_1->collider->__bounding_radius,
-                    coll_2->collider->__transform.__globalPosPtr(), coll_2->collider->__bounding_radius
-                    ))
-            continue;
-
-        // pair checking
         CollisionManifold manifold = CollisionManifold(Vector2::RIGHT, 0.0);
         manifold.point_count = 0;
         bool is_body_1_the_ref = false;
         bool is_colliding = true;
+        if (!axisAlignedBoundingSquareCheck(
+                    coll_1->collider->__transform.__globalPosPtr(), coll_1->collider->__bounding_radius,
+                    coll_2->collider->__transform.__globalPosPtr(), coll_2->collider->__bounding_radius
+                    )) {
+            is_colliding = false;
+            // let callback handle collision
+            if (result_handling_function) {
+                result_handling_function(
+                        is_colliding,
+                        &manifold,
+                        &is_body_1_the_ref,
+                        coll_1, coll_2
+                        );
+            }
+            continue;
+        }
+
+        // pair checking
         switch (coll_1->collider_tag) {
             case COLTAG_Box:
                 switch (coll_2->collider_tag) {

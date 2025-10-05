@@ -108,6 +108,7 @@ public:
     void setCollisionPair(EntityID ent_a, EntityID ent_b, CollisionManifold* manifold, EntityID ref_entity);
     void removeCollisionPair(EntityID ent_a, EntityID ent_b);
 
+    size_t __numEntitiesWithCollider() { return m_num_entities_with_collider; };
     void __updateColliderObjectList(EntityManager* entity_mgr);
     void __colliderCheckCollision(
             ColliderObject* collider,
