@@ -41,7 +41,7 @@ public:
 /**
  * Container for components of types T that were managed by ComponentManager.
  *
- * The components were stored in a `vector<T>` that will only grow when a T component
+ * The components were stored in an array of T that will only grow when a T component
  * were added to an entity. This were done to saves on memory usage and avoid sparse
  * array that will contains mostly unused component objects.
  */
@@ -53,7 +53,7 @@ private:
     /** map of index in m_components to entity ID */
     std::unordered_map<size_t, EntityIDNumber> m_index_to_entity_map;
     /** array of component objects */
-    std::vector<T> m_components;
+    T m_components[MAX_ENTITIES];
     /** queue of empty indexes in the m_components */
     std::queue<size_t> m_empty_index_queue;
     /** empty index at the end of the m_components array */
@@ -99,19 +99,10 @@ public:
         } else {
             new_index = m_last_empty_component_index;
             m_last_empty_component_index++;
-
-            m_components.push_back(T());
-            std::cout << "typename: " << typeid(T).name() << std::endl;
-            std::cout << "New Component pushed back, comps.size()=" << m_components.size() << std::endl;
         }
 
         m_entity_to_index_map[entity_id] = new_index;
         m_index_to_entity_map[new_index] = entity_id;
-        
-        for (auto ent_ind_pair : m_entity_to_index_map) {
-            std::cout << "  " << ent_ind_pair.first << " -> " << ent_ind_pair.second << std::endl;
-            std::cout << std::endl;
-        }
     }
 
     /**
@@ -302,6 +293,8 @@ private:
     std::function<void(EntityID entity_id)> m_on_entity_destroyed_callback { nullptr };
 
 public:
+
+    Game* game = nullptr;
     
     EntityManager();
     ~EntityManager();

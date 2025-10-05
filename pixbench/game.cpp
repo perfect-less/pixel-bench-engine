@@ -74,6 +74,7 @@ Result<VoidResult, GameError> Game::Initialize() {
         return res;
 
     this->entityManager = new EntityManager();
+    this->entityManager->game = this;
     this->entityManager->setComponentAddedToEntityCallback(
             [this] (ComponentTag ctag, ComponentType ctype, size_t cindex, EntityID ent_id)
             {
