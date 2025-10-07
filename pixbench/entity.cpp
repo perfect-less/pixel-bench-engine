@@ -2,12 +2,14 @@
 #include "pixbench/ecs.h"
 #include "pixbench/entity.h"
 #include <algorithm>
+#include <functional>
 #include <vector>
 #include <cassert>
 
 
 EntityManager::EntityManager() {
     this->m_component_manager = new ComponentManager();
+    this->tag.__setEntityInfoArray(this->m_entities);
     
     for (int i = 0; i < MAX_ENTITIES; i++) {
         this->m_entities[i].entityid.id = i;
@@ -120,3 +122,44 @@ void EntityManager::resetEntitiesUninitializedStatus() {
 //
 //     return std::vector<EntityID>();  // empty vector
 // };
+
+
+// ==================== EntityTag ====================
+
+void EntityTagAPI::addTagToEntity(EntityID entity, std::string tag) {
+    int tag_index;
+    if ( m_tag_to_index_map.find(tag) == m_tag_to_index_map.end() ) {
+        tag_index = tag_index_counter;
+        ++tag_index_counter;
+    } else {
+        tag_index = m_tag_to_index_map[tag];
+    }
+
+    m_ent_mgr_entities[entity.id].tag_mask.set(tag_index);
+}
+
+void EntityTagAPI::removeTagFromEntity(EntityID entity, std::string tag) {
+    if ( m_ent_mgr_entities[entity.id].active == false || entity.version != m_ent_mgr_entities[entity.id].current_version ) {
+        return;
+    }
+
+    if ( m_tag_to_index_map.find(tag) == m_tag_to_index_map.end() ) {
+        return;
+    }
+
+    const int tag_index = m_tag_to_index_map[tag];
+    m_ent_mgr_entities[entity.id].tag_mask.reset(tag_index);
+}
+
+bool EntityTagAPI::isEntityHasTag(EntityID entity, std::string tag) {
+    if ( m_ent_mgr_entities[entity.id].active == false || entity.version != m_ent_mgr_entities[entity.id].current_version ) {
+        return false;
+    }
+
+    if ( m_tag_to_index_map.find(tag) == m_tag_to_index_map.end() ) {
+        return false;
+    }
+
+    const int tag_index = m_tag_to_index_map[tag];
+    return m_ent_mgr_entities[entity.id].tag_mask[tag_index];
+}

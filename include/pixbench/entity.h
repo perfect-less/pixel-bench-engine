@@ -4,6 +4,10 @@
 #include "pixbench/engine_config.h"
 #include <bitset>
 #include <cstddef>
+#include <functional>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 
 class EntityManager;
@@ -31,6 +35,31 @@ struct EntityInfo {
     bool active = false;                            //!< active status, true means this entity is active
     size_t current_version = 0;                     //!< version, to prevent old disabled id to be used by user
     std::bitset<MAX_COMPONENTS> component_mask;     //!< mask of assigned components to this entity
+    std::bitset<MAX_TAGS> tag_mask;                 //!< mask of assigned tags
+};
+
+
+class EntityTagAPI {
+private:
+    std::unordered_map<std::string, int> m_tag_to_index_map;
+    EntityManager* m_entity_manager = nullptr;
+    EntityInfo* m_ent_mgr_entities = nullptr;       //!< entityManager's m_entities
+    int tag_index_counter = 0;
+public:
+
+    void __setEntityInfoArray(EntityInfo* entities) {
+        m_ent_mgr_entities = entities;
+    }
+
+    void addTagToEntity(EntityID entity, std::string tag);
+
+    void removeTagFromEntity(EntityID entity, std::string tag);
+
+    bool isEntityHasTag(EntityID entity, std::string tag);
+
+    std::vector<EntityID> getEntitiesWithTag(std::string tag);
+
+    std::vector<std::string> getEntityTags(EntityID);
 };
 
 

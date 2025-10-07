@@ -295,6 +295,7 @@ private:
 public:
 
     Game* game = nullptr;
+    EntityTagAPI tag;
     
     EntityManager();
     ~EntityManager();
