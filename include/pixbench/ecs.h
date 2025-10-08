@@ -295,6 +295,7 @@ private:
 public:
 
     Game* game = nullptr;
+    EntityTagAPI tag;
     
     EntityManager();
     ~EntityManager();
@@ -305,6 +306,10 @@ public:
      */
     void setHierarchyAPI(HierarchyAPI* hierarchy_api) {
         this->m_hierarchy = hierarchy_api;
+    }
+
+    inline EntityIDNumber __lastAvailableEntityNumber() const {
+        return m_last_available_entity_number;
     }
 
     /**

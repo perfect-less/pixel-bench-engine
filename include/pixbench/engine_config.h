@@ -31,6 +31,11 @@ const size_t MAX_ENTITIES = 10000;
 const size_t MAX_COMPONENTS = 30;
 
 
+/**
+ * Maximum number of unique tags for whole ECS systems.
+ * */
+const size_t MAX_TAGS = 30;
+
 
 /*
  * AUDIO
