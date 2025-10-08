@@ -308,6 +308,10 @@ public:
         this->m_hierarchy = hierarchy_api;
     }
 
+    inline EntityIDNumber __lastAvailableEntityNumber() const {
+        return m_last_available_entity_number;
+    }
+
     /**
      * Create a new entity and returns the ID of the newly created entity.
      */

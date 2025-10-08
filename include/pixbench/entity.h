@@ -4,7 +4,6 @@
 #include "pixbench/engine_config.h"
 #include <bitset>
 #include <cstddef>
-#include <functional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -42,14 +41,23 @@ struct EntityInfo {
 class EntityTagAPI {
 private:
     std::unordered_map<std::string, int> m_tag_to_index_map;
+    std::string m_index_to_tag_array[MAX_TAGS];
     EntityManager* m_entity_manager = nullptr;
     EntityInfo* m_ent_mgr_entities = nullptr;       //!< entityManager's m_entities
     int tag_index_counter = 0;
 public:
 
+    void __setEntityManager(EntityManager* entityManager) {
+        this->m_entity_manager = entityManager;
+    }
+
     void __setEntityInfoArray(EntityInfo* entities) {
         m_ent_mgr_entities = entities;
     }
+
+    int getTagIndex(std::string tag);
+
+    int numOfEntityWithTag(std::string tag);
 
     void addTagToEntity(EntityID entity, std::string tag);
 
