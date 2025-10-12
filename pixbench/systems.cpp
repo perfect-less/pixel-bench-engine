@@ -451,6 +451,10 @@ Result<VoidResult, GameError> RenderingSystem::Initialize(Game* game, EntityMana
                     ent_id, cindex);
             Transform* transform = entity_mgr->getEntityComponent<Transform>(ent_id);
             renderable->transform = transform;
+            if (renderable->getRenderableTag() == RenderableTag::RCTAG_Script) {
+                CustomRenderable* custom_renderable = static_cast<CustomRenderable*>(renderable);
+                custom_renderable->Init(game, entity_mgr, ent_id);
+            }
         }
     }
     std::cout << "RenderingSystem::Initialize::END" << std::endl;
