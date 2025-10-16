@@ -44,6 +44,16 @@ public:
      */
     size_t numberOfEntityWithCollider();
 
+    /**
+     * Returns whether the entity is colliding or ont
+     */
+    bool isEntityColliding(EntityID ent_id);
+
+    /**
+     * Returns vector of CollisionEvent attributed to an entity
+     */
+    std::vector<CollisionEvent> getEntityCollisionEvents(EntityID ent_id);
+
 
     void __setGame(Game* game) {
         m_game = game;
