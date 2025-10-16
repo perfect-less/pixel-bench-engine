@@ -59,9 +59,20 @@ public:
         return m_axis_inputs[name].value;
     }
 
+    double getButtonInput(std::string name) {
+        if ( m_button_inputs.find(name) == m_button_inputs.end() )
+            return false;
+
+        return m_button_inputs[name].value;
+    }
+
     Result<VoidResult, GameError> Update(double deltaTime_s, EntityManager *entityManager, EntityID self) override {
 
         for (auto& it : m_axis_inputs) {
+            it.second.resetWrite();
+        }
+
+        for (auto& it : m_button_inputs) {
             it.second.resetWrite();
         }
 
@@ -85,14 +96,11 @@ public:
         if ( !m_game )
             return ResultOK;
 
-        if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
-            std::cout << "Gamepad button: " << (int)event->gbutton.button << std::endl;
+        
+        if (event->type == SDL_EVENT_GAMEPAD_BUTTON_UP || event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+            const bool is_down = event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
             if (event->gbutton.button == SDL_GAMEPAD_BUTTON_LABEL_A) {
-                std::cout << 
-                    "++++++++++++++++++++++++++++++" << std::endl <<
-                    "==================== BUTTON A PRESED" << std::endl <<
-                    "++++++++++++++++++++++++++++++"
-                    << std::endl;
+                m_button_inputs["jump"].writeValue(is_down, 0);
             }
         }
 
@@ -121,6 +129,7 @@ private:
     Game* m_game = nullptr;
 
     std::unordered_map<std::string, AxisInput> m_axis_inputs;
+    std::unordered_map<std::string, ButtonInput> m_button_inputs;
 };
 
 #endif

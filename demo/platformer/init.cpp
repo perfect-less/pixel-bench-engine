@@ -160,13 +160,32 @@ void Game::InitializeGame(Game* game) {
     spawnPlayableCharacter(ent_mgr, Vector2(120, 120));
 
     // spawn simple block bellow
-    EntityID block_ent = ent_mgr->createEntity();
     {
+        EntityID block_ent = ent_mgr->createEntity();
         auto transform = ent_mgr->addComponentToEntity<Transform>(block_ent);
         auto box_coll = ent_mgr->addComponentToEntity<BoxCollider>(block_ent);
         box_coll->setSize(200, 20);
         transform->SetPosition(Vector2(120, 200));
     }
+
+    // spawn simple block bellow
+    {
+        EntityID block_ent = ent_mgr->createEntity();
+        auto transform = ent_mgr->addComponentToEntity<Transform>(block_ent);
+        auto box_coll = ent_mgr->addComponentToEntity<BoxCollider>(block_ent);
+        box_coll->setSize(500, 20);
+        transform->SetPosition(Vector2(300, 320));
+    }
+
+    {
+        EntityID block_ent = ent_mgr->createEntity();
+        auto transform = ent_mgr->addComponentToEntity<Transform>(block_ent);
+        auto box_coll = ent_mgr->addComponentToEntity<BoxCollider>(block_ent);
+        box_coll->setSize(250, 20);
+        transform->SetPosition(Vector2(450, 280));
+    }
+
+    SDL_RaiseWindow(game->renderContext->window);
 
     std::cout << "InitializeGame done" << std::endl;
 }

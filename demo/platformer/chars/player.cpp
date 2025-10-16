@@ -54,6 +54,39 @@ Result<VoidResult, GameError> CharacterController::Update(double deltaTime_s, En
 
 
 Result<VoidResult, GameError> CharacterController::FixedUpdate(double deltaTime_s, EntityManager *entityManager, EntityID self) {
+
+    {
+    const Vector2 position = transform->GlobalPosition();
+    const bool is_colliding = game->physics.isEntityColliding(self);
+    auto coll_events = game->physics.getEntityCollisionEvents(self);
+
+    bool is_on_floor = false;
+    if (is_colliding) {
+        for (auto& event: coll_events) {
+            Vector2 normal = -1.0 * event.manifold.normal;
+            if (normal.y < 0.0 && this->velocity.y > .0) {
+                this->velocity.y = 0;
+                is_on_floor = true;
+            }
+            if (normal.y > 0.0 && std::abs(normal.x) < 0.01) {
+                this->velocity.y = - 0.4 * this->velocity.y;
+            }
+            transform->SetPosition(position + std::max(event.manifold.penetration_depth - 0.5, 0.0) * normal);
+        }
+    }
+
+    if ( is_on_floor && input_handler->getButtonInput("jump") ) {
+        this->velocity.y = Vector2::UP.y * 300.0;
+        transform->SetPosition(transform->GlobalPosition() + Vector2::DOWN * velocity.y * deltaTime_s);
+    }
+        
+    if ( !is_on_floor ) {
+        this->velocity.y += gravity_multiplier * game->physics.GRAVITY * deltaTime_s;
+        transform->SetPosition(transform->GlobalPosition() + Vector2::DOWN * velocity.y * deltaTime_s);
+    }
+
+    }
+
     {
     const Vector2 position = transform->GlobalPosition();
     if ( m_move_input.sqrMagnitude() > .001 ) {
@@ -64,32 +97,9 @@ Result<VoidResult, GameError> CharacterController::FixedUpdate(double deltaTime_
             move_speed = walk_speed;
         }
         
-        const Vector2 new_position = position + Vector2(move_dir.x, 0.0) * move_speed * deltaTime_s;
+        const Vector2 new_position = position + Vector2(move_dir.x, .0) * move_speed * deltaTime_s;
         transform->SetPosition(new_position);
     }
-    }
-
-    {
-    const Vector2 position = transform->GlobalPosition();
-    
-    RaycastHit raycast_hit;
-    const bool is_hitting = game->physics.circleCast(
-            position, Vector2::DOWN, this->caps_coll->length/2.0, this->caps_coll->radius,
-            &raycast_hit, &self
-            );
-
-    if ( is_hitting ) {
-        this->velocity.y = 0;
-        const Vector2 ray_center = raycast_hit.point + raycast_hit.normal * this->caps_coll->radius;
-        const double ray_dis = (ray_center - position).magnitude();
-        const double pen_depth = this->caps_coll->length / 2.0 - ray_dis;
-        
-        transform->SetPosition(position + Vector2::UP * pen_depth);
-    } else {
-        this->velocity.y += gravity_multiplier * game->physics.GRAVITY * deltaTime_s;
-        transform->SetPosition(position + Vector2::DOWN * velocity.y * deltaTime_s);
-    }
-
     }
 
     return ResultOK;
