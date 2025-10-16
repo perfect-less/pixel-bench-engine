@@ -25,7 +25,8 @@ private:
     
 public:
     
-    double gravity_multiplier = 10.0;
+    double gravity_multiplier = 20.0;
+    double jump_force = 500.0;
 
     void onCollisionEnter(CollisionEvent coll_event);
 

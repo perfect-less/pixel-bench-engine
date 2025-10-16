@@ -29,6 +29,8 @@ EntityID spawnPlayableCharacter(EntityManager *ent_mgr, Vector2 spawn_position) 
 
     transform->SetPosition(spawn_position);
 
+    char_cont->gravity_multiplier = 50.0;
+
     return char_ent;
 }
 
@@ -64,8 +66,10 @@ Result<VoidResult, GameError> CharacterController::FixedUpdate(double deltaTime_
     if (is_colliding) {
         for (auto& event: coll_events) {
             Vector2 normal = -1.0 * event.manifold.normal;
-            if (normal.y < 0.0 && this->velocity.y > .0) {
-                this->velocity.y = 0;
+            if (normal.y < 0.0 ) {
+                if (this->velocity.y > .0) {
+                    this->velocity.y = 0;
+                }
                 is_on_floor = true;
             }
             if (normal.y > 0.0 && std::abs(normal.x) < 0.01) {
@@ -76,7 +80,7 @@ Result<VoidResult, GameError> CharacterController::FixedUpdate(double deltaTime_
     }
 
     if ( is_on_floor && input_handler->getButtonInput("jump") ) {
-        this->velocity.y = Vector2::UP.y * 300.0;
+        this->velocity.y = Vector2::UP.y * jump_force;
         transform->SetPosition(transform->GlobalPosition() + Vector2::DOWN * velocity.y * deltaTime_s);
     }
         
@@ -93,7 +97,7 @@ Result<VoidResult, GameError> CharacterController::FixedUpdate(double deltaTime_
         Vector2 move_dir = Vector2(m_move_input.x, -m_move_input.y).normalized();
 
         float move_speed = run_speed;
-        if (m_move_input.magnitude() < .65) {
+        if (m_move_input.magnitude() < .78) {
             move_speed = walk_speed;
         }
         
