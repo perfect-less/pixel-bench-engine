@@ -58,7 +58,6 @@ Result<VoidResult, GameError> CharacterController::Update(double deltaTime_s, En
 Result<VoidResult, GameError> CharacterController::FixedUpdate(double deltaTime_s, EntityManager *entityManager, EntityID self) {
 
     {
-    const Vector2 position = transform->GlobalPosition();
     const bool is_colliding = game->physics.isEntityColliding(self);
     auto coll_events = game->physics.getEntityCollisionEvents(self);
 
@@ -66,6 +65,10 @@ Result<VoidResult, GameError> CharacterController::FixedUpdate(double deltaTime_
     if (is_colliding) {
         for (auto& event: coll_events) {
             Vector2 normal = -1.0 * event.manifold.normal;
+            if (velocity.sqrMagnitude() > .001 && Vector2::dotProduct(velocity.normalized(), normal) < .0) {
+                transform->SetPosition(transform->GlobalPosition() + std::max(event.manifold.penetration_depth - 0.5, 0.0) * normal);
+            }
+
             if (normal.y < 0.0 ) {
                 if (this->velocity.y > .0) {
                     this->velocity.y = 0;
@@ -75,18 +78,12 @@ Result<VoidResult, GameError> CharacterController::FixedUpdate(double deltaTime_
             if (normal.y > 0.0 && std::abs(normal.x) < 0.01) {
                 this->velocity.y = - 0.4 * this->velocity.y;
             }
-            transform->SetPosition(position + std::max(event.manifold.penetration_depth - 0.5, 0.0) * normal);
         }
     }
 
+    this->velocity.y += gravity_multiplier * game->physics.GRAVITY * deltaTime_s;
     if ( is_on_floor && input_handler->getButtonInput("jump") ) {
         this->velocity.y = Vector2::UP.y * jump_force;
-        transform->SetPosition(transform->GlobalPosition() + Vector2::DOWN * velocity.y * deltaTime_s);
-    }
-        
-    if ( !is_on_floor ) {
-        this->velocity.y += gravity_multiplier * game->physics.GRAVITY * deltaTime_s;
-        transform->SetPosition(transform->GlobalPosition() + Vector2::DOWN * velocity.y * deltaTime_s);
     }
 
     }
@@ -101,10 +98,17 @@ Result<VoidResult, GameError> CharacterController::FixedUpdate(double deltaTime_
             move_speed = walk_speed;
         }
         
-        const Vector2 new_position = position + Vector2(move_dir.x, .0) * move_speed * deltaTime_s;
-        transform->SetPosition(new_position);
+        velocity.x = move_dir.x * move_speed;
+        const Vector2 new_position = position + Vector2(velocity.x, .0) * deltaTime_s;
+        // transform->SetPosition(new_position);
+    } else {
+        velocity.x = .0;
     }
     }
+
+    transform->SetPosition(
+            transform->GlobalPosition() + velocity * deltaTime_s
+            );
 
     return ResultOK;
 }

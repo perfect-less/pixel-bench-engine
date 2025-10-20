@@ -5,6 +5,7 @@
 #include "pixbench/ecs.h"
 #include "pixbench/entity.h"
 #include "pixbench/game.h"
+#include "pixbench/physics/type.h"
 #include "pixbench/utils/utils.h"
 #include "pixbench/vector2.h"
 #include <SDL3/SDL_events.h>
@@ -159,7 +160,7 @@ void Game::InitializeGame(Game* game) {
 
     spawnPlayableCharacter(ent_mgr, Vector2(120, 120));
 
-    // spawn simple block bellow
+    // spawn simple blocks bellow
     {
         EntityID block_ent = ent_mgr->createEntity();
         auto transform = ent_mgr->addComponentToEntity<Transform>(block_ent);
@@ -168,7 +169,6 @@ void Game::InitializeGame(Game* game) {
         transform->SetPosition(Vector2(120, 200));
     }
 
-    // spawn simple block bellow
     {
         EntityID block_ent = ent_mgr->createEntity();
         auto transform = ent_mgr->addComponentToEntity<Transform>(block_ent);
@@ -183,6 +183,20 @@ void Game::InitializeGame(Game* game) {
         auto box_coll = ent_mgr->addComponentToEntity<BoxCollider>(block_ent);
         box_coll->setSize(250, 20);
         transform->SetPosition(Vector2(450, 280));
+    }
+
+    {
+        // simple ramp
+        EntityID ramp_ent = ent_mgr->createEntity();
+        auto transform = ent_mgr->addComponentToEntity<Transform>(ramp_ent);
+        auto poly_coll = ent_mgr->addComponentToEntity<PolygonCollider>(ramp_ent);
+
+        Vector2 vertex[3] = {Vector2(-100, 0), Vector2(0, 0), Vector2(0, -70)};
+        Polygon poly;
+        poly.setVertex(vertex, 3);
+        poly_coll->setPolygon(poly);
+
+        transform->SetPosition(Vector2(500, 270));
     }
 
     SDL_RaiseWindow(game->renderContext->window);

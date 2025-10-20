@@ -100,7 +100,14 @@ public:
         if (event->type == SDL_EVENT_GAMEPAD_BUTTON_UP || event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
             const bool is_down = event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
             if (event->gbutton.button == SDL_GAMEPAD_BUTTON_LABEL_A) {
-                m_button_inputs["jump"].writeValue(is_down, 0);
+                m_button_inputs["jump"].writeValue(is_down, GAMEPAD_WRITE_PRIO);
+            }
+        }
+
+        if (event->type == SDL_EVENT_KEY_DOWN || event->type == SDL_EVENT_KEY_UP) {
+            const bool is_down = event->type == SDL_EVENT_KEY_DOWN;
+            if (event->key.key == SDLK_SPACE) {
+                m_button_inputs["jump"].writeValue(is_down, KEYBOARD_WRITE_PRIO);
             }
         }
 
