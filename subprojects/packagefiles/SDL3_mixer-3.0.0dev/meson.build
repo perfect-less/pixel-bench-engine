@@ -6,6 +6,22 @@ project(
 
 cc = meson.get_compiler('c')
 
+# Audio deps
+audio_deps = []
+
+if host_machine.system() == 'darwin'
+  audio_deps += dependency('appleframeworks', modules: [
+    'AudioToolbox',
+    'AudioUnit',
+    'CoreAudio',
+    'CoreFoundation'
+  ])
+elif host_machine.system() == 'windows'
+  # TODO
+elif host_machine.system() == 'linux'
+  # TODO
+endif
+
 feature_args = ['-DMUSIC_WAV', '-DMUSIC_OGG']
 if get_option('default_library') != 'static' and host_machine.system() == 'windows'
   feature_args += '-DDLL_EXPORT'
@@ -78,11 +94,12 @@ sdl3_mixer_lib = library(
   sources,
   c_args: feature_args,
   include_directories: incdirs,
-  dependencies: [vorbisfile_dep, vorbis_dep, ogg_dep, opus_dep, mpg123_dep, flac_dep, sdl3_dep],
-  install: true
+  dependencies: [vorbisfile_dep, vorbis_dep, ogg_dep, opus_dep, mpg123_dep, flac_dep, sdl3_dep, audio_deps],
+  install: false
 )
 
 sdl3_mixer_dep = declare_dependency(
   include_directories: incdirs,
   link_with: sdl3_mixer_lib,
+  dependencies: [audio_deps],
 )

@@ -34,14 +34,25 @@ engine_sources = [
 sources = []
 
 # Subdir inclusions
-subdir('test/')  # unit tests
-subdir('src/')   # game sources
+# subdir('test/')  # unit tests
 
-# Game executable
+# Pixbench includes and sources
 includes = engine_includes
 sources += engine_sources
-executable(
-  'game', sources,
+
+# Static library
+pixbench_lib = static_library(
+  'pixbench', sources,
   dependencies: [sdl3_dep, sdl3_mixer_dep],
-  include_directories: includes
+  include_directories: includes,
+  install: false
   )
+
+# Dependency exports
+pixbench_dep = declare_dependency(
+  include_directories: includes,
+  link_with: pixbench_lib,
+  dependencies: [sdl3_dep, sdl3_mixer_dep],
+  )
+
+meson.override_dependency('pixel-bench-engine', pixbench_dep)
