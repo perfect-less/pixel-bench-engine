@@ -1,3 +1,6 @@
+#define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 #include "pixbench/game.h"
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
@@ -9,9 +12,6 @@
 #include <iostream>
 #include <ostream>
 #include <string>
-#define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_main.h>
 
 class AppState {
 public:

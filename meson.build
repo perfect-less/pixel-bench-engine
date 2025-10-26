@@ -10,6 +10,9 @@ project(
     ]
   )
 
+# cmath
+add_project_arguments('-D_USE_MATH_DEFINES', language: 'cpp')
+
 # Includes and dependencies
 engine_includes = [include_directories('include/')]
 sdl3_dep = dependency('sdl3')

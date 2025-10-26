@@ -3,11 +3,11 @@
 
 
 #include <SDL3/SDL_stdinc.h>
-#include <sys/types.h>
+#include <cstdint>
 
 void PrepareRandomGenerator();
 
-u_int32_t GenerateRandomUInt32();
+uint32_t GenerateRandomUInt32();
 
 class Color {
 private:

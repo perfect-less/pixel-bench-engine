@@ -82,7 +82,7 @@ if host_machine.system() == 'darwin'
   ])
   sources += 'src/codecs/native_midi/native_midi_macosx.c'
 elif host_machine.system() == 'windows'
-  # TODO
+  midi_native_deps += cc.find_library('winmm')
   sources += 'src/codecs/native_midi/native_midi_win32.c'
 elif host_machine.system() == 'linux'
   midi_native_deps += dependency('alsa', required: true)

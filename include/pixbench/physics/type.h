@@ -4,6 +4,7 @@
 
 #include "pixbench/entity.h"
 #include "pixbench/vector2.h"
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <unordered_map>
 
