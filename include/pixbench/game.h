@@ -88,7 +88,7 @@ public:
      * }
      * ~~~~~~~~~~~~~~~~~~~~~~~~
      */
-    static Game* CreateGame();
+    // static Game* CreateGame();
 
     /**
      * **User defined function** that should be overriden by the user. You can
@@ -130,7 +130,7 @@ public:
      * }
      * ~~~~~~~~~~~~~~~~~~~~~~~~
      */
-    static void InitializeGame(Game*);
+    // static void InitializeGame(Game*);
 
     /**
      * Apply game config created using GameConfig class. Only called this

@@ -44,7 +44,7 @@ includes = engine_includes
 sources += engine_sources
 
 # Static library
-pixbench_lib = static_library(
+pixbench_lib = shared_library(
   'pixbench', sources,
   dependencies: [sdl3_dep, sdl3_mixer_dep],
   include_directories: includes,
