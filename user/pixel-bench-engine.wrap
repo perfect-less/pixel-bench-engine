@@ -1,0 +1,8 @@
+[wrap-git]
+directory = pixel-bench-engine
+url = https://github.com/perfect-less/pixel-bench-engine.git
+revision = main
+depth = 1
+
+[provide]
+pbengine = pbengine_dep
