@@ -9,7 +9,7 @@
  * function.
  * Example of the usage of this function
  * ~~~~~~~~~~~~~~~~~~~~~~~~{.cpp}
- * Game* Game::CreateGame() {
+ * Game* CreateGame() {
  *     Game* game = new Game();
  * 
  *     GameConfig gConfig = GameConfig();
@@ -38,7 +38,7 @@ Game* CreateGame();
  * loads assets and then creates your entities here.
  * example usage: 
  * ~~~~~~~~~~~~~~~~~~~~~~~~{.cpp}
- * void Game::InitializeGame(Game* game) {
+ * void InitializeGame(Game* game) {
  *     auto ent_mgr = game->entityManager;
  *     EntityID ent = ent_mgr->createEntity();
  * 
