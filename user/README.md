@@ -16,7 +16,7 @@ cd ..
 
 ### 3. Get `meson.build` file
 ```bash
-$ wget https://raw.githubusercontent.com/perfect-less/pixel-bench-engine/refs/heads/main/user/meson.build
+wget https://raw.githubusercontent.com/perfect-less/pixel-bench-engine/refs/heads/main/user/meson.build
 ```
 
 ### 4. Get the sample `init.cpp` file
@@ -38,5 +38,5 @@ meson compile -C build
 
 ### 7. Run the game
 ```bash
-./build/run
+./build/game
 ```
