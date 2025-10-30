@@ -1,5 +1,6 @@
-#include "pixbench/ecs.h"
+#include "pixbench/init.h"
 #include "pixbench/game.h"
+#include "pixbench/ecs.h"
 #include "pixbench/utils/utils.h"
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_joystick.h>
@@ -13,7 +14,7 @@
 #include <string>
 
 
-Game* Game::CreateGame() {
+Game* CreateGame() {
     /* Create a Game object,
      * the lifetime of this object is the lifetime of the
      * application */
@@ -46,7 +47,7 @@ Game* Game::CreateGame() {
     return game;
 }
 
-void Game::InitializeGame(Game* game) {
+void InitializeGame(Game* game) {
     std::cout << "InitializeGame called" << std::endl;
     auto ent_mgr = game->entityManager;
 
