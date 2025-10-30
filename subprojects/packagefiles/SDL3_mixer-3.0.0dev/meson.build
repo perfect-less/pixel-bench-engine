@@ -57,10 +57,7 @@ sources = files(
   'src/codecs/mp3utils.c',
   'src/codecs/music_ogg.c',
   'src/codecs/music_ogg_stb.c',
-  'src/codecs/native_midi/native_midi_macosx.c',
-  'src/codecs/native_midi/native_midi_win32.c',
   'src/codecs/native_midi/native_midi_common.c',
-  'src/codecs/native_midi/native_midi_linux_alsa.c',
   'src/codecs/load_sndfile.c',
   'src/codecs/music_opus.c',
   'src/codecs/music_wav.c',
@@ -73,16 +70,37 @@ sources = files(
   'src/effect_stereoreverse.c',
 )
 
+# Audio deps
+midi_native_deps = []
+
+if host_machine.system() == 'darwin'
+  midi_native_deps += dependency('appleframeworks', modules: [
+    'AudioToolbox',
+    'AudioUnit',
+    'CoreAudio',
+    'CoreFoundation'
+  ])
+  sources += 'src/codecs/native_midi/native_midi_macosx.c'
+elif host_machine.system() == 'windows'
+  midi_native_deps += cc.find_library('winmm')
+  sources += 'src/codecs/native_midi/native_midi_win32.c'
+elif host_machine.system() == 'linux'
+  midi_native_deps += dependency('alsa', required: true)
+  sources += 'src/codecs/native_midi/native_midi_linux_alsa.c'
+
+endif
+
 sdl3_mixer_lib = library(
   'sdl3mixer',
   sources,
   c_args: feature_args,
   include_directories: incdirs,
-  dependencies: [vorbisfile_dep, vorbis_dep, ogg_dep, opus_dep, mpg123_dep, flac_dep, sdl3_dep],
-  install: true
+  dependencies: [vorbisfile_dep, vorbis_dep, ogg_dep, opus_dep, mpg123_dep, flac_dep, sdl3_dep] + midi_native_deps,
+  install: false
 )
 
 sdl3_mixer_dep = declare_dependency(
   include_directories: incdirs,
   link_with: sdl3_mixer_lib,
+  dependencies: [midi_native_deps],
 )
