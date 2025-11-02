@@ -21,12 +21,14 @@ public:
     Vector2 camera_size;        //!< camera size in scene space
     Vector2 screen_size;        //!< screen size in pixels
     Color renderClearColor;     //!< Color of clear window
+    SDL_RendererLogicalPresentation _logical_presentation;
 
     RenderContext(
             std::string game_title,
             Vector2 screen_size,
             Vector2 camera_position, Vector2 camera_size,
-            Color render_clear_color
+            Color render_clear_color,
+            SDL_RendererLogicalPresentation render_logical_presentation
             )
     : renderClearColor(render_clear_color)
     {
@@ -42,8 +44,20 @@ public:
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Can't initialized SDL: %s", SDL_GetError());
             /*return 3;*/
         }
+
+        this->_logical_presentation = render_logical_presentation;
+
         this->SetScreenSize(screen_size);
         this->SetCameraContext(camera_position, camera_size);
+    }
+
+    void setRenderLogicalPresentation(SDL_RendererLogicalPresentation render_logical_presentation) {
+        this->_logical_presentation = render_logical_presentation;
+        SDL_SetRenderLogicalPresentation(
+                this->renderer,
+                this->screen_size.x, this->screen_size.y,
+                render_logical_presentation
+                );
     }
 
     ~RenderContext() {
@@ -53,6 +67,7 @@ public:
 
     void SetScreenSize(Vector2 screen_size) {
         this->screen_size = screen_size;
+        this->setRenderLogicalPresentation(this->_logical_presentation);
     }
 
     void SetCameraContext(Vector2 camera_position, Vector2 camera_size) {
