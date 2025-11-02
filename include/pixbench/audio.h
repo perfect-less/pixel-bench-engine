@@ -64,46 +64,61 @@ private:
     std::shared_ptr<MusicClip> m_music;
     double m_position{ 0.0 };
 public:
-    int volume{ MIX_MAX_VOLUME };   //!< Volume for audio played by this player
+    int _volume{ MIX_MAX_VOLUME };  //!< Volume for audio played by this player
     bool is_looping{ false };       //!< Set `true` to loop the audio
-    
-    /*
+
+    /**
      * Set the music clip
      */
     void setMusic(std::shared_ptr<MusicClip> music);
 
-    /*
+    /**
+     * Set music volume, from 0 - MIX_MAX_VOLUME
+     */
+    void setVolume(int volume);
+
+    /**
+     * Set music volume, from 0.0 - 1.0
+     */
+    void setVolume(float volume);
+
+    /**
+     * Get the current music volume
+     */
+    int volume();
+
+    /**
      * Set audio position in seconds
      */
     bool setPosition(double position);
 
-    /*
+    /**
      * Get audio position in seconds
      */
     double getPosition();
     
-    /*
+    /**
      * Returns `true` if this player is currently playing audio
      */
     bool isPlaying();
 
-    /*
+    /**
      * Play the audio clip, specify at (from 0 to 1) as position to start the audio
      * play.
      */
     bool play(double at=0);
 
-    /*
+    /**
      * Pause the currently playing audio.
      */
     void pause();
 
-    /*
+    /**
      * Resume paused audio at the last known position.
      */
     void resume();
 
-    /*
+    /**
      * Pause if audio is playing, otherwise play the audio clip.
      */
     void togglePlay();

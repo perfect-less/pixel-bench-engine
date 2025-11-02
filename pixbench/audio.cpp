@@ -105,3 +105,17 @@ void MusicPlayer::togglePlay() {
         this->resume();
     }
 }
+
+void MusicPlayer::setVolume(int volume) {
+    Mix_VolumeMusic(volume);
+    this->_volume = Mix_VolumeMusic(-1);
+}
+
+void MusicPlayer::setVolume(float volume) {
+    const int volume_int = std::min(std::max(.0f, volume), 1.0f) * MIX_MAX_VOLUME;
+    this->setVolume(volume_int);
+}
+
+int MusicPlayer::volume() {
+    return this->_volume;
+}

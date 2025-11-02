@@ -2,6 +2,7 @@
 #define GAME_CONFIG_HEADER
 
 #include "pixbench/utils/utils.h"
+#include <SDL3/SDL_render.h>
 #include <string>
 
 
@@ -14,6 +15,8 @@ public:
 
     bool render_vsync_enabled = true;
     Color render_clear_color = Color::GetBlack();
+
+    SDL_RendererLogicalPresentation render_logical_presentation = SDL_RendererLogicalPresentation::SDL_LOGICAL_PRESENTATION_DISABLED;
 
     std::string game_title = "Untitled Game";
     std::string game_version = "1.0.0";

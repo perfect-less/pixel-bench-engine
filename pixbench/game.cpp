@@ -155,7 +155,8 @@ Result<VoidResult, GameError> Game::PrepareRenderer(int windowWidth, int windowH
             Vector2(windowWidth, windowHeight),
             Vector2(0.0, 0.0),
             Vector2(windowWidth, windowHeight),
-            this->gameConfig.render_clear_color
+            this->gameConfig.render_clear_color,
+            this->gameConfig.render_logical_presentation
             );
 
     if (this->gameConfig.render_vsync_enabled) {
