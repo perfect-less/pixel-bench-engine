@@ -1,4 +1,5 @@
-#include "pixbench/engine_config.h"
+// #include "pixbench/engine_config.h"
+#include "engine_config.h"
 #include "pixbench/components.h"
 #include "pixbench/systems.h"
 #include "pixbench/ecs.h"

@@ -4,7 +4,8 @@
 
 #include "pixbench/components.h"
 #include "pixbench/ecs.h"
-#include "pixbench/engine_config.h"
+// #include "pixbench/engine_config.h"
+#include "engine_config.h"
 #include "pixbench/entity.h"
 #include "pixbench/game.h"
 #include "pixbench/physics/physics.h"

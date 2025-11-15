@@ -4,7 +4,8 @@
 #include "pixbench/components.h"
 #include "pixbench/entity.h"
 #include "pixbench/game.h"
-#include "pixbench/engine_config.h"
+// #include "pixbench/engine_config.h"
+#include "engine_config.h"
 #include "pixbench/hierarchy.h"
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_rect.h>

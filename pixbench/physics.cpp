@@ -2,7 +2,8 @@
 #include "pixbench/entity.h"
 #include "pixbench/physics/type.h"
 #include "pixbench/systems.h"
-#include "pixbench/engine_config.h"
+// #include "pixbench/engine_config.h"
+#include "engine_config.h"
 #include "pixbench/vector2.h"
 #include <algorithm>
 #include <chrono>

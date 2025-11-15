@@ -1,7 +1,8 @@
 #include "pixbench/game.h"
 #include "pixbench/ecs.h"
 #include "pixbench/systems.h"
-#include "pixbench/engine_config.h"
+// #include "pixbench/engine_config.h"
+#include "engine_config.h"
 #include "pixbench/vector2.h"
 #include "SDL3_mixer/SDL_mixer.h"
 #include <SDL3/SDL_events.h>
