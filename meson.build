@@ -13,8 +13,30 @@ project(
 # cmath
 add_project_arguments('-D_USE_MATH_DEFINES', language: 'cpp')
 
+# engine configs
+conf = configuration_data({
+  'MAX_ENTITIES': get_option('max_entities'),
+  'MAX_COMPONENTS': get_option('max_components'),
+  'MAX_TAGS': get_option('max_tags'),
+  'FIXED_UPDATE_RATE': get_option('fixed_update_rate'),
+  'RAYCAST_SEGMENT_LENGTH': get_option('raycast_segment_length'),
+  'MAX_POLYGON_VERTEX': get_option('max_polygon_vertex'),
+  'PHYSICS_DEBUG_DRAW': get_option('physics_debug_draw'),
+  'PHYSICS_DEBUG_DRAW_SHOW_ENTITY_ID': get_option('physics_debug_draw_show_entity_id'),
+  'PHYSICS_DEBUG_DRAW_SHOW_BOUNDING_BOX': get_option('physics_debug_draw_show_bounding_box'),
+  })
+
+configure_file(
+  input: 'include/pixbench/engine_config.h.in',
+  output: 'engine_config.h',
+  # build_subdir: 'pixbench',
+  configuration: conf
+)
+
+conf_inc = include_directories('.')
+
 # Includes and dependencies
-engine_includes = [include_directories('include/')]
+engine_includes = [include_directories('include/'), conf_inc]
 sdl3_dep = dependency('sdl3')
 sdl3_mixer_dep = dependency('sdl3_mixer')
 

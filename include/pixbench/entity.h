@@ -1,7 +1,8 @@
 #ifndef ENTITY_HEADER
 #define ENTITY_HEADER
 
-#include "pixbench/engine_config.h"
+// #include "pixbench/engine_config.h"
+#include "engine_config.h"
 #include <bitset>
 #include <cstddef>
 #include <string>

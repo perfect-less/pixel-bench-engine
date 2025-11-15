@@ -1,0 +1,54 @@
+option(
+  'max_entities',
+  type: 'integer',
+  value: 10000,
+  description: '[ECV] Maximum number of entities the engine can creates.'
+  )
+option(
+  'max_components',
+  type: 'integer',
+  value: 30,
+  description: '[ECV] Maximum number of unique components can be active at once.'
+  )
+option(
+  'max_tags',
+  type: 'integer',
+  value: 30,
+  description: '[ECV] Maximum number of unique tags in the ECS system'
+  )
+option(
+  'fixed_update_rate',
+  type: 'integer',
+  value: 60,
+  description: '[PHY] Physic fixed update frame rate.'
+  )
+option(
+  'max_polygon_vertex',
+  type: 'integer',
+  value: 16,
+  description: '[PHY] Maximum number of vertex in a polygon collider.'
+  )
+option(
+  'raycast_segment_length',
+  type: 'string',
+  value: '128.0',
+  description: '[PHY] Raycast segment length.'
+  )
+option(
+  'physics_debug_draw',
+  type: 'boolean',
+  value: true,
+  description: '[PHY] Set to true to draw collider.'
+  )
+option(
+  'physics_debug_draw_show_entity_id',
+  type: 'boolean',
+  value: false,
+  description: '[PHY] If physics_debug_draw is true then show the entity id.'
+  )
+option(
+  'physics_debug_draw_show_bounding_box',
+  type: 'boolean',
+  value: false,
+  description: '[PHY] If physics_debug_draw is true then draw the the bounding box.'
+  )
